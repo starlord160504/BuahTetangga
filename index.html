@@ -101,6 +101,7 @@ label.f{display:block;font-weight:600;font-size:13.5px;margin:12px 0 5px}
 .btn:disabled{opacity:.6}.btn.red{background:var(--out)}
 .del{background:0;border:1px solid var(--line);color:var(--mu);border-radius:8px;padding:4px 10px;font-size:12.5px}
 .del.arm{background:var(--out);border-color:var(--out);color:#fff}
+.pr{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #eef2ec;flex-wrap:wrap}.pr:last-child{border:0}.pr .tag{flex:1 1 100%;display:flex;align-items:center;gap:7px;font-weight:600}.pr .tag i{width:11px;height:11px;border-radius:50%;border:1px solid #0003}.pr .inp{flex:1;min-width:90px;width:auto}.pr input[type=color]{width:44px;height:42px;padding:2px;border:1.5px solid var(--line);border-radius:10px;background:var(--soft)}.btn.sm{width:auto;margin:0;padding:10px 16px;font-size:14px}
 .fl{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}.fl .inp{flex:1;min-width:130px;width:auto}
 #nav{position:fixed;left:0;right:0;bottom:0;max-width:1000px;margin:0 auto;display:flex;background:var(--leaf);padding:6px 6px calc(6px + var(--sb));border-radius:18px 18px 0 0;z-index:10}
 #nav button{flex:1;background:0;border:0;color:#bcd8c6;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;padding:7px 2px;border-radius:12px}
@@ -268,10 +269,11 @@ function chart(id, cfg) {
 const killCh = () => { Object.values(CH).forEach(c => c.destroy()); for (const k in CH) delete CH[k]; };
 
 /* ===== Tampilan ===== */
-const ICON = { ringkasan: '<path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>', pemasukan: '<path d="M12 3v13m0 0l-5-5m5 5l5-5M4 21h16"/>', pengeluaran: '<path d="M12 17V4m0 0L7 9m5-5l5 5M4 21h16"/>', riwayat: '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8m0-4v4h4M12 7v5l3 2"/>', tren: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>' };
+const ICON = { ringkasan: '<path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>', pemasukan: '<path d="M12 3v13m0 0l-5-5m5 5l5-5M4 21h16"/>', pengeluaran: '<path d="M12 17V4m0 0L7 9m5-5l5 5M4 21h16"/>', riwayat: '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8m0-4v4h4M12 7v5l3 2"/>', tren: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>', harga: '<path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 7.5h.01"/>' };
+const hex6 = c => /^#[0-9a-fA-F]{6}$/.test(c) ? c : '#999999';
 const LQ = {};
 function formIn() {
-  const l = aktif(); if (!l.find(p => p.nama === draft.jus)) { draft.jus = l[0] ? l[0].nama : ''; draft.harga = l[0] ? l[0].harga : 0; } draft.qty = 1;
+  const l = aktif(), cur = l.find(p => p.nama === draft.jus) || l[0]; draft.jus = cur ? cur.nama : ''; draft.harga = cur ? cur.harga : 0; draft.qty = 1;
   return `<div class="card"><h2>Penjualan baru</h2><p class="sub">Pilih rasa, atur jumlah, lalu simpan.</p>
   <div class="chips" id="chips">${l.map(p => `<button type="button" class="chip${p.nama === draft.jus ? ' on' : ''}" data-n="${esc(p.nama)}"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)}</button>`).join('')}</div>
   <div class="row"><div><label class="f">Jumlah botol</label><div class="stp"><button type="button" id="mn">−</button><input class="inp" id="qty" type="number" min="1" value="1" inputmode="numeric"><button type="button" id="pl">+</button></div></div>
@@ -285,6 +287,7 @@ const V = {
   pemasukan: ['Pemasukan', formIn, 0],
   pengeluaran: ['Pengeluaran', () => `<div class="card"><h2>Pengeluaran baru</h2><p class="sub">Catat biaya agar laba bersih akurat.</p><label class="f">Kategori</label><select class="inp" id="kat">${KAT.map(k => `<option>${k}</option>`).join('')}</select><label class="f">Keterangan</label><input class="inp" id="ket"><div class="row"><div><label class="f">Jumlah (Rp)</label><input class="inp" id="jml" type="number" min="0" inputmode="numeric"></div><div><label class="f">Tanggal</label><input class="inp" id="tgl" type="date" value="${today()}"></div></div><button class="btn red" id="save">Simpan pengeluaran</button></div><div class="card"><h2>Pengeluaran terakhir</h2><p class="sub" id="tt"></p><ul class="feed" id="tl"></ul></div>`, 0],
   riwayat: ['Riwayat', () => `<div class="card"><div class="fl"><input class="inp" id="fq" placeholder="Cari catatan / metode…"><select class="inp" id="fj"><option value="">Semua rasa</option>${S.produk.map(p => `<option>${esc(p.nama)}</option>`).join('')}</select><input class="inp" id="ff" type="date" title="Dari"><input class="inp" id="ft" type="date" title="Sampai"></div><p class="sub" id="tt"></p><ul class="feed" id="tl"></ul></div>`, 0],
+  harga: ['Harga Jus', () => `<div class="card"><h2>Harga default per rasa</h2><p class="sub">Dipakai otomatis di menu Jual dan grafik. Ubah harga atau warna, lalu ketuk Simpan.</p>${S.produk.map(p => `<div class="pr"><span class="tag"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)}</span><input class="inp" type="number" min="0" inputmode="numeric" value="${p.harga}" data-n="${esc(p.nama)}"><input type="color" value="${hex6(p.warna)}" data-c="${esc(p.nama)}"><button class="btn sm" data-s="${esc(p.nama)}">Simpan</button><button class="del" data-p="${esc(p.nama)}">Hapus</button></div>`).join('')}</div><div class="card"><h2>Rasa baru</h2><p class="sub">Otomatis masuk di bawah rasa terakhir.</p><div class="pr"><input class="inp" id="nn" placeholder="mis. Lemon"><input class="inp" id="nh" type="number" min="0" inputmode="numeric" placeholder="Harga"><input type="color" id="nc" value="#ffd500"><button class="btn sm" id="addP">+ Tambah</button></div></div>`, 0],
   tren: ['Tren Harian', `<div class="g4" id="kpi"></div><div class="card"><h2>Pemasukan, pengeluaran, laba</h2><p class="sub">Garis laba di bawah nol berarti hari itu rugi.</p><div class="cb"><canvas id="cT1"></canvas></div></div><div class="card"><h2>Botol terjual per rasa</h2><p class="sub">Rasa yang menggerakkan penjualan tiap hari</p><div class="cb"><canvas id="cT2"></canvas></div></div>`, 1]
 };
 function go(v) {
@@ -292,7 +295,7 @@ function go(v) {
   const m = V[v]; $('#title').textContent = m[0]; $('#period').hidden = !m[2];
   $('#view').innerHTML = typeof m[1] === 'function' ? m[1]() : m[1]; paint(); scrollTo(0, 0);
 }
-const paint = () => { $$('#period button').forEach(b => b.classList.toggle('on', b.dataset.p === period)); ({ ringkasan: pR, pemasukan: pP, pengeluaran: pE, riwayat: pH, tren: pT })[view](); };
+const paint = () => { $$('#period button').forEach(b => b.classList.toggle('on', b.dataset.p === period)); ({ ringkasan: pR, pemasukan: pP, pengeluaran: pE, riwayat: pH, tren: pT, harga: () => {} })[view](); };
 
 function pR() {
   const { start, end } = range(), a = agg(start, end), n = a.days.length, f = r => r.tanggal >= start && r.tanggal <= end;
@@ -349,6 +352,12 @@ $('#view').addEventListener('click', async e => {
   else if (b.id === 'mn' || b.id === 'pl') { $('#qty').value = Math.max(1, (Number($('#qty').value) || 1) + (b.id === 'pl' ? 1 : -1)); upd(); }
   else if (b.id === 'save' && view === 'pemasukan') { upd(); if (await sub(b, 'api_addIncome', [{ jus: draft.jus, qty: draft.qty, harga: draft.harga, tanggal: $('#tgl').value, metode: $('#met').value, catatan: $('#cat').value }], `${draft.qty}× ${draft.jus} tersimpan`)) { $('#qty').value = 1; $('#cat').value = ''; upd(); } }
   else if (b.id === 'save') { if (await sub(b, 'api_addExpense', [{ kategori: $('#kat').value, keterangan: $('#ket').value, jumlah: $('#jml').value, tanggal: $('#tgl').value }], 'Pengeluaran tersimpan')) $('#ket').value = $('#jml').value = ''; }
+  else if (b.dataset.s !== undefined) { const n = b.dataset.s, q = a => document.querySelector(`input[${a}="${CSS.escape(n)}"]`); await sub(b, 'api_savePrice', [n, q('data-n').value, q('data-c').value], n + ' diperbarui'); }
+  else if (b.dataset.p !== undefined) {
+    if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Yakin?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = 'Hapus'; }, 3000); return; }
+    const n = b.dataset.p; if (await sub(b, 'api_deleteProduct', [n], 'Rasa ' + n + ' dihapus')) go('harga');
+  }
+  else if (b.id === 'addP') { const n = $('#nn').value.trim(); if (await sub(b, 'api_addProduct', [n, $('#nh').value, $('#nc').value], 'Rasa ' + n + ' ditambahkan')) go('harga'); }
   else if (b.classList.contains('del')) {
     if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Yakin?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = 'Hapus'; }, 3000); return; }
     b.disabled = true; try { S = await call('api_delete', b.dataset.j, b.dataset.id); saveS(); toast('Transaksi dihapus'); paint(); } catch (er) { toast(er.message, 1); b.disabled = false; }
@@ -365,7 +374,7 @@ async function refresh(manual) {
 }
 function start(bg) {
   $('#auth').hidden = true; $('#app').hidden = $('#nav').hidden = false; $('#who').textContent = A.user;
-  $('#nav').innerHTML = [['ringkasan', 'Ringkasan'], ['pemasukan', 'Jual'], ['pengeluaran', 'Biaya'], ['riwayat', 'Riwayat'], ['tren', 'Tren']].map(v => `<button data-v="${v[0]}"><svg viewBox="0 0 24 24">${ICON[v[0]]}</svg>${v[1]}</button>`).join('');
+  $('#nav').innerHTML = [['ringkasan', 'Ringkasan'], ['pemasukan', 'Jual'], ['pengeluaran', 'Biaya'], ['riwayat', 'Riwayat'], ['tren', 'Tren'], ['harga', 'Harga']].map(v => `<button data-v="${v[0]}"><svg viewBox="0 0 24 24">${ICON[v[0]]}</svg>${v[1]}</button>`).join('');
   $$('#nav button').forEach(b => b.onclick = () => go(b.dataset.v));
   const a = aktif()[0]; if (a) { draft.jus = a.nama; draft.harga = a.harga; }
   go('ringkasan'); if (bg) refresh();
