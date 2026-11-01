@@ -159,6 +159,11 @@ body.adm #toast{bottom:calc(150px + var(--sb))}
 .skc .tag{display:flex;align-items:center;gap:7px;font-weight:600;margin-bottom:8px}.skc .tag i{width:12px;height:12px;border-radius:50%;border:1px solid #0003;flex:none}
 .skc .stp{display:flex;gap:4px}.skc .stp button{width:34px;flex:none}.skc .stp input{min-width:0;padding:8px 2px}
 .skc .su{display:block;margin-top:7px;color:var(--mu);font-size:12px}
+.gg{margin-top:12px}.gg:first-child{margin-top:0}
+.gh{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;background:var(--soft);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:2px}
+.gh b{font:700 16px 'Bricolage Grotesque',sans-serif}.gh span{color:var(--mu);font-size:12.5px}
+.od a{color:var(--l2);font-weight:600}
+#pnm::placeholder,#ptl::placeholder{font-size:13px}
 </style>
 </head>
 <body>
@@ -196,8 +201,8 @@ const addDays = (s, n) => { const d = new Date(s + 'T12:00:00'); d.setDate(d.get
 const tgl = (s, o) => new Date(s + 'T12:00:00').toLocaleDateString('id-ID', o || { day: 'numeric', month: 'short' });
 const sum = (a, f) => a.reduce((t, x) => t + f(x), 0), sleep = ms => new Promise(r => setTimeout(r, ms));
 const LS = { g: k => { try { return localStorage.getItem(k) } catch (e) { return null } }, s: (k, v) => { try { localStorage.setItem(k, v) } catch (e) {} }, d: k => { try { localStorage.removeItem(k) } catch (e) {} } };
-const TK = 'bt_token', DK = 'bt_data', METODE = ['Tunai', 'QRIS', 'Transfer'], KAT = ['Buah-buahan', 'Botol', 'Stiker', 'BBM / Ongkir', 'Es Batu', 'Lainnya'];
-let A = { token: '', user: '', role: '' }, S = { produk: [], pemasukan: [], pengeluaran: [], pesanan: [] }, view = 'ringkasan', period = '7', draft = { jus: '', qty: 1, harga: 0 }, AM = 'login', authId = '', skew = 0, pd = { jus: '', qty: 1, metode: 'Tunai' }, editId = null, ofil = 'Semua';
+const NK = 'bt_nama', TLK = 'bt_telp', TK = 'bt_token', DK = 'bt_data', METODE = ['Tunai', 'QRIS', 'Transfer'], KAT = ['Buah-buahan', 'Botol', 'Stiker', 'BBM / Ongkir', 'Es Batu', 'Lainnya'];
+let qNama = LS.g(NK) || '', A = { token: '', user: '', role: '' }, S = { produk: [], pemasukan: [], pengeluaran: [], pesanan: [] }, view = 'ringkasan', period = '7', draft = { jus: '', qty: 1, harga: 0 }, AM = 'login', authId = '', skew = 0, pd = { jus: '', qty: 1, metode: 'Tunai' }, editId = null, ofil = 'Semua';
 const BANK = [{ n: 'Bank Mandiri', no: '1410023555717', an: 'M AGUNG RIDHO ISLAMI' }, { n: 'BLU BCA', no: '008297786559', an: 'M Agung Ridho Islami' }], ADMV = ['ringkasan', 'pemasukan', 'pengeluaran', 'riwayat', 'tren', 'harga', 'stok'];
 
 /* ===== API ke Apps Script (text/plain = tanpa preflight CORS) ===== */
@@ -211,7 +216,7 @@ async function call(fn, ...a) {
   if (j.data && j.data.now) skew = j.data.now - Date.now();
   return j.data;
 }
-const saveS = () => LS.s(DK, JSON.stringify(S));
+const saveS = () => { if (A.role === 'admin') LS.s(DK, JSON.stringify(S)); };
 let tt; function toast(m, e) { const t = $('#toast'); t.textContent = m; t.className = 'show' + (e ? ' e' : ''); clearTimeout(tt); tt = setTimeout(() => t.className = '', 2600); }
 
 /* ===== Loader jus 0–100% ===== */
@@ -224,7 +229,7 @@ function ldOn() {
   const step = () => {
     if (sh < tg) sh = Math.min(tg, sh + Math.max(.2, (tg - sh) * .07));
     const p = Math.round(sh), i = Math.min(4, Math.floor(p / 20));
-    if (p !== lastP) { lastP = p; $('#pc').textContent = p + '%'; $('#jl').setAttribute('transform', `translate(0 ${152 - p * 1.36})`); $('#lt').textContent = p < 30 ? 'Memetik buah…' : p < 60 ? 'Memeras jus…' : p < 90 ? 'Menuang ke gelas…' : 'Siap diminum!'; }
+    if (p !== lastP) { lastP = p; $('#pc').textContent = p + '%'; $('#jl').setAttribute('transform', `translate(0 ${152 - p * 1.36})`); $('#lt').textContent = p < 30 ? 'Memetik buah…' : p < 60 ? 'Memeras jus…' : p < 90 ? 'Menuang ke botol…' : 'Siap diminum!'; }
     if (i !== lastI) { lastI = i; $('#fr').textContent = FR[i][0]; $('#jw').setAttribute('fill', FR[i][1]); }
     if (sh >= 100) { clearInterval(tm); return fin && fin(); }
     raf = requestAnimationFrame(step);
@@ -236,7 +241,7 @@ const ldOff = () => { clearInterval(tm); cancelAnimationFrame(raf); };
 
 /* ===== Layar login ===== */
 const M = {
-  login: { t: 'Masuk', s: 'Masuk untuk memesan jus.', b: 'Masuk', f: [['u', 'Username atau email', 'text', 'autocapitalize=none autocomplete=username'], ['p', 'Password', 'password', 'autocomplete=current-password']], l: [['lupa', 'Lupa password?'], ['daftar', 'Daftar akun baru']] },
+  login: { t: 'Masuk', s: 'Login khusus admin.', b: 'Masuk', f: [['u', 'Username atau email', 'text', 'autocapitalize=none autocomplete=username'], ['p', 'Password', 'password', 'autocomplete=current-password']], l: [['lupa', 'Lupa password?'], ['kembali', '← Kembali ke pemesanan']] },
   daftar: { t: 'Daftar', s: 'Buat akun untuk memesan jus. Username dipakai sebagai nama pemesan.', b: 'Daftar', f: [['u', 'Username', 'text', 'autocapitalize=none autocomplete=username'], ['e', 'Email', 'email', 'autocomplete=email'], ['p', 'Password (min. 8 karakter)', 'password', 'autocomplete=new-password'], ['p2', 'Ulangi password', 'password', 'autocomplete=new-password']], l: [['login', 'Sudah punya akun? Masuk']] },
   lupa: { t: 'Lupa password', s: 'Kode 6 digit dikirim ke email terdaftar.', b: 'Kirim kode', f: [['u', 'Username atau email', 'text', 'autocapitalize=none']], l: [['login', 'Kembali ke Masuk'], ['reset', 'Saya sudah punya kode']] },
   reset: { t: 'Password baru', s: 'Masukkan kode dari email dan password baru.', b: 'Simpan password', f: [['u', 'Username atau email', 'text', 'autocapitalize=none'], ['k', 'Kode 6 digit', 'text', 'inputmode=numeric maxlength=6 autocomplete=one-time-code'], ['p', 'Password baru', 'password', 'autocomplete=new-password'], ['p2', 'Ulangi password baru', 'password', 'autocomplete=new-password']], l: [['lupa', 'Kirim ulang kode'], ['login', 'Kembali ke Masuk']] }
@@ -246,7 +251,10 @@ function authView(m, msg, ok) {
   const hasPw = d.f.some(x => x[2] === 'password');
   ac.innerHTML = `<h2>${d.t}</h2><p class="sub">${d.s}</p><form id="af" novalidate>${d.f.map(([i, l, t, a]) => `<label class="f" for="f_${i}">${l}</label><input class="inp" id="f_${i}" type="${t}" ${a || ''}>`).join('')}${hasPw ? '<label class="chk"><input type="checkbox" id="sp"> Tampilkan password</label>' : ''}<div id="am" class="${msg ? (ok ? 'ok' : 'err') : ''}">${esc(msg || '')}</div><button class="btn" id="ab">${d.b}</button></form><div class="lk">${d.l.map(([k, l]) => `<a data-m="${k}">${l}</a>`).join('')}</div>`;
   if ((m === 'lupa' || m === 'reset') && $('#f_u')) $('#f_u').value = authId;
-  $$('#ac [data-m]').forEach(a => a.onclick = () => { if ($('#f_u')) authId = $('#f_u').value.trim(); authView(a.dataset.m); });
+  $$('#ac [data-m]').forEach(a => a.onclick = () => {
+    if (a.dataset.m === 'kembali') { A = { token: '', user: '', role: 'tamu' }; if (S.produk.length) { $('#auth').hidden = true; $('#app').hidden = $('#nav').hidden = false; } else guestEnter(); return; }
+    if ($('#f_u')) authId = $('#f_u').value.trim(); authView(a.dataset.m);
+  });
   const sp = $('#sp'); if (sp) sp.onchange = () => $$('#af input[type=password],#af input[data-pw]').forEach(i => i.type = sp.checked ? 'text' : 'password');
   $$('#af input[type=password]').forEach(i => i.dataset.pw = 1);
   $('#af').onsubmit = authSubmit;
@@ -276,8 +284,21 @@ async function enterFlow(getAuth) {
 }
 function logout(msg) {
   LS.d(TK); LS.d(DK); A = { token: '', user: '', role: '' }; S = { produk: [], pemasukan: [], pengeluaran: [], pesanan: [] }; editId = null; killCh();
-  $('#app').hidden = $('#nav').hidden = true; $('#auth').hidden = false; AM = 'login'; authView('login', msg);
+  $('#app').hidden = $('#nav').hidden = true; $('#auth').hidden = false; guestEnter(msg);
 }
+/* pemesan umum: tanpa login -> loader jus -> ambil jus/stok -> masuk app */
+async function guestEnter(msg) {
+  ldOn();
+  try {
+    cap = 92; S = await call('pub_getData', qNama); A = { token: '', user: '', role: 'tamu' };
+    await ldDone(); await sleep(350); start(); if (msg) toast(msg);
+  } catch (e) {
+    ldOff(); const ac = $('#ac'); ac.hidden = false; $('#ld').hidden = true;
+    ac.innerHTML = `<h2>Gagal memuat</h2><div class="err">${esc(e.message)}</div><button class="btn" id="rty">Coba lagi</button><div class="lk"><a id="adm">Masuk admin</a></div>`;
+    $('#rty').onclick = () => guestEnter(); $('#adm').onclick = showLogin;
+  }
+}
+function showLogin() { $('#app').hidden = $('#nav').hidden = true; $('#auth').hidden = false; authId = ''; authView('login'); }
 
 /* ===== Data & periode ===== */
 const aktif = () => S.produk.filter(p => p.aktif);
@@ -373,17 +394,20 @@ function cartInfo() {
 }
 
 function formPesan() {
-  const l = aktif(), g = editId && grp().find(x => x.grup === editId); if (editId && !g) editId = null;
-  cart = {}; if (g) { g.items.forEach(i => cart[i.jus] = i.qty); pd.metode = g.metode; } else pd.metode = 'Tunai';
-  return `<div class="card"><h2>${g ? 'Ubah pesanan' : 'Pesan jus'}</h2><p class="sub">${g ? 'Bisa diubah selama belum dikonfirmasi dan belum lewat batas waktu.' : 'Pilih tanggal, lalu ketuk + pada jus yang diinginkan. Boleh lebih dari satu varian.'}</p>
-  <label class="f" style="margin-top:4px">Tanggal pesan</label><input class="inp" id="ptgl" type="date" min="${today()}" value="${g ? esc(g.tanggal) : today()}">
-  <label class="f">Pilih jus</label><p class="sub" id="avt" style="margin-bottom:2px"></p>
+  const l = aktif(), adm = A.role === 'admin', nm = adm ? '' : (LS.g(NK) || ''), tl = adm ? '' : (LS.g(TLK) || '');
+  cart = {}; pd.metode = 'Tunai';
+  return `<div class="card"><h2>Jus ini untuk</h2>
+  <label class="f" for="pnm" style="margin-top:8px">Nama</label><input class="inp" id="pnm" maxlength="30" autocomplete="off" value="${esc(nm)}" placeholder="pakai nama unik ini untuk cek Status Pesanan apakah sudah Approve">
+  <label class="f" for="ptl">Nomor telfon</label><input class="inp" id="ptl" type="tel" inputmode="tel" maxlength="16" value="${esc(tl)}" placeholder="untuk konfirmasi recipt">
+  <label class="f" for="ptgl">Untuk tanggal</label><input class="inp" id="ptgl" type="date" min="${today()}" value="${today()}"></div>
+  <div class="card"><h2>Pesan jus</h2><p class="sub">Ketuk + pada jus yang diinginkan. Boleh lebih dari satu varian.</p>
+  <label class="f" style="margin-top:4px">Pilih jus</label><p class="sub" id="avt" style="margin-bottom:2px"></p>
   <div id="vl">${l.map(p => `<div class="vr" data-r="${esc(p.nama)}"><span class="vn"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)}<em> · ${rp(p.harga)}</em></span><span class="vs"><button type="button" data-pa="${esc(p.nama)}" data-d="-1">−</button><b class="vq">0</b><button type="button" data-pa="${esc(p.nama)}" data-d="1">+</button></span><span class="sb na">…</span></div>`).join('') || '<div class="empty">Belum ada jus.</div>'}</div>
   <label class="f">Pembayaran</label><div class="chips" id="pmc">${['Tunai', 'Transfer'].map(m => `<button type="button" class="chip${m === pd.metode ? ' on' : ''}" data-pm="${m}">${m}</button>`).join('')}</div>
   <div id="payinfo"></div>
-  <label class="f">Catatan (opsional)</label><input class="inp" id="pcat" maxlength="200" value="${g ? esc(g.catatan) : ''}" placeholder="mis. less sugar, tanpa es">
+  <label class="f">Catatan (opsional)</label><input class="inp" id="pcat" maxlength="200" placeholder="mis. less sugar, tanpa es">
   <div class="tot"><span id="psum">Belum ada jus dipilih</span><strong id="ptot">Rp0</strong></div>
-  <button class="btn" id="psave">${g ? 'Simpan perubahan' : 'Pesan sekarang'}</button>${g ? '<button class="btn gh" id="pcancel">Batal ubah</button>' : ''}</div>`;
+  <button class="btn" id="psave">Pesan sekarang</button></div>`;
 }
 function pPesan() { // dipanggil tiap data diperbarui: hanya memperbarui info stok, pilihan jumlah tidak terhapus
   if (!$('#vl')) return;
@@ -406,34 +430,41 @@ function pUpd() {
   $('#payinfo').innerHTML = pd.metode === 'Transfer' ? `<p class="hint">Transfer ke salah satu rekening ini, lalu tunggu konfirmasi penjual:</p>${payBox(ci.tot)}` : '<p class="hint">Bayar tunai langsung ke penjual.</p>';
 }
 
-function orderHtml(o, adm, me, now) {
-  const own = o.pembeli.toLowerCase() === me, wait = o.status === 'Menunggu', inWin = wait && now < o.batas;
-  const canEdit = own && inWin, canCancel = wait && (adm || (own && inWin));
-  const left = Math.max(0, Math.ceil((o.batas - now) / 60000));
-  const sisa = own && inWin ? `<small class="cd">Bisa diubah/dibatalkan ${left >= 60 ? Math.floor(left / 60) + ' j ' + (left % 60) + ' m' : left + ' m'} lagi</small>` : own && wait ? '<small class="cd off">Batas waktu ubah (2 jam) sudah lewat</small>' : '';
-  const pay = own && wait && o.metode === 'Transfer' ? `<details class="pay-d"><summary>Lihat rekening transfer</summary>${payBox(o.total)}</details>` : '';
-  const cls = { Menunggu: 'wait', Dikonfirmasi: 'ok', Dibatalkan: 'no' }[o.status] || 'wait';
-  const info = wait ? '' : `<small>${esc(o.status)} ${dtm(o.diperbarui)}${o.oleh ? ' oleh ' + esc(o.oleh) : ''}</small>`;
-  const nItem = o.items.reduce((t, i) => t + i.qty, 0), id = esc(o.grup);
-  const acts = [wait && adm ? `<button class="btn sm" data-ok="${id}">Konfirmasi</button>` : '', canEdit ? `<button class="mb" data-oe="${id}">Ubah</button>` : '', canCancel ? `<button class="mb" data-ox="${id}">${own ? 'Batalkan' : 'Tolak'}</button>` : ''].join('');
-  return `<div class="od"><div class="oh"><b>${adm ? esc(o.pembeli) + (own ? ' (Anda)' : '') : nItem + ' gelas'}</b><span class="st ${cls}">${esc(o.status)}</span></div>
-  <small>${adm ? nItem + ' gelas · ' : ''}Untuk ${tgl(o.tanggal, { day: 'numeric', month: 'short', year: 'numeric' })} · ${esc(o.metode)}</small>
+function orderHtml(o, adm) {
+  const wait = o.status === 'Menunggu', cls = { Menunggu: 'wait', Dikonfirmasi: 'ok', Dibatalkan: 'no' }[o.status] || 'wait';
+  const nItem = o.items.reduce((t, i) => t + i.qty, 0), id = esc(o.grup), tg = tgl(o.tanggal, { day: 'numeric', month: 'short', year: 'numeric' });
+  const head = adm ? `Nama Pemesan - ${esc(o.pembeli)} - ${nItem} botol - Untuk ${tg} - ${esc(o.metode)}` : `${nItem} botol`;
+  const tel = adm && o.telp ? `<small>Telp: <a href="tel:${esc(o.telp)}">${esc(o.telp)}</a></small>` : '';
+  const info = wait ? '' : `<small>${esc(o.status)} ${dtm(o.diperbarui)}${adm && o.oleh ? ' oleh ' + esc(o.oleh) : ''}</small>`;
+  const pay = !adm && wait && o.metode === 'Transfer' ? `<details class="pay-d"><summary>Lihat rekening transfer</summary>${payBox(o.total)}</details>` : '';
+  const acts = adm && wait ? `<button class="btn sm" data-ok="${id}">Konfirmasi</button><button class="mb" data-ox="${id}">Tolak</button>` : '';
+  return `<div class="od"><div class="oh"><b>${head}</b><span class="st ${cls}">${esc(o.status)}</span></div>${adm ? '' : `<small>Untuk ${tg} · ${esc(o.metode)}</small>`}${tel}
   <div style="margin:6px 0">${o.items.map(i => `<div class="it"><span>${i.qty}× ${esc(i.jus)}</span><span>${rp(i.total)}</span></div>`).join('')}</div>
-  <small>Dipesan ${dtm(o.dibuat)}${o.catatan ? ' · ' + esc(o.catatan) : ''}</small>${info}${sisa}
+  <small>Dipesan ${dtm(o.dibuat)}${o.catatan ? ' · ' + esc(o.catatan) : ''}</small>${info}
   <div class="oh" style="margin-top:4px"><span>Total</span><span class="amt in">${rp(o.total)}</span></div>${pay}${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
 }
 function pOrd() {
   if (!$('#ol')) return;
-  const adm = A.role === 'admin', me = A.user.toLowerCase(), now = Date.now() + skew;
+  const adm = A.role === 'admin';
   const all = grp().sort((a, b) => b.dibuat.localeCompare(a.dibuat)), cnt = s => all.filter(o => o.status === s).length;
   $('#ofc').innerHTML = ['Menunggu', 'Dikonfirmasi', 'Dibatalkan', 'Semua'].map(t => `<button type="button" class="chip${t === ofil ? ' on' : ''}" data-of="${t}">${t}${t === 'Semua' ? '' : ' (' + cnt(t) + ')'}</button>`).join('');
   const rows = ofil === 'Semua' ? all : all.filter(o => o.status === ofil);
-  $('#ott').textContent = rows.length + ' pesanan' + (adm && ofil === 'Menunggu' && rows.length ? ' · menunggu konfirmasi ' + rp(sum(rows, o => o.total)) : '');
-  $('#ol').innerHTML = rows.length ? rows.slice(0, 100).map(o => orderHtml(o, adm, me, now)).join('') : `<div class="empty">${ofil === 'Semua' ? 'Belum ada pesanan.' : 'Tidak ada pesanan ' + ofil.toLowerCase() + '.'}</div>`;
+  if (!adm) {
+    $('#ott').textContent = qNama ? rows.length + ' pesanan atas nama "' + qNama + '"' : '';
+    $('#ol').innerHTML = !qNama ? '<div class="empty">Ketik nama pemesan di atas, lalu ketuk Cari.</div>' : rows.length ? rows.slice(0, 100).map(o => orderHtml(o, false)).join('') : `<div class="empty">${all.length ? 'Tidak ada pesanan ' + ofil.toLowerCase() + '.' : 'Belum ada pesanan atas nama ini.'}</div>`;
+    return;
+  }
+  $('#ott').textContent = rows.length + ' pesanan' + (ofil === 'Menunggu' && rows.length ? ' · menunggu konfirmasi ' + rp(sum(rows, o => o.total)) : '');
+  const gm = {}, gl = [];
+  rows.slice(0, 100).forEach(o => { const k = o.pembeli.toLowerCase(); let g = gm[k]; if (!g) { g = gm[k] = { nama: o.pembeli, list: [] }; gl.push(g); } g.list.push(o); });
+  $('#ol').innerHTML = gl.length ? gl.map(g => `<div class="gg"><div class="gh"><b>${esc(g.nama)}</b><span>${g.list.length} pesanan · ${sum(g.list, o => sum(o.items, i => i.qty))} botol · ${rp(sum(g.list, o => o.total))}</span></div>${g.list.map(o => orderHtml(o, true)).join('')}</div>`).join('') : `<div class="empty">${ofil === 'Semua' ? 'Belum ada pesanan.' : 'Tidak ada pesanan ' + ofil.toLowerCase() + '.'}</div>`;
 }
 function pStok() { $$('#stl [data-su]').forEach(e => { const p = S.produk.find(x => x.nama === e.dataset.su); e.textContent = p && p.stokUpdate ? 'Diperbarui ' + dtm(p.stokUpdate) : 'Belum pernah diinfo'; }); }
 V.pesan = ['Pesan Jus', formPesan, 0];
-V.pesanan = ['Pesanan', `<div class="card"><div class="chips" id="ofc"></div><p class="sub" id="ott" style="margin-top:10px"></p><div id="ol"></div></div>`, 0];
+V.pesanan = ['Pesanan', () => A.role === 'admin'
+  ? `<div class="card"><div class="chips" id="ofc"></div><p class="sub" id="ott" style="margin-top:10px"></p><div id="ol"></div></div>`
+  : `<div class="card"><h2>Siapa yang pesan?</h2><p class="sub">Ketik nama yang dipakai saat memesan, lalu ketuk Cari.</p><div class="fl" style="margin:0"><input class="inp" id="snm" maxlength="30" autocomplete="off" placeholder="mis. starlord1" value="${esc(qNama)}"><button class="btn sm" id="scari">Cari</button></div></div>
+  <div class="card"><h2>Status Pesanan</h2><div class="chips" id="ofc" style="margin-top:8px"></div><p class="sub" id="ott" style="margin-top:10px"></p><div id="ol"></div></div>`, 0];
 V.stok = ['Stok Jus', () => `<div class="card"><h2>Update stok</h2><p class="sub">Geser ke samping untuk semua jus. Isi jumlah yang tersedia: 0 = habis, kosong = belum diinfo. Pembeli langsung melihatnya beserta waktu pembaruan.</p><div class="sk" id="stl">${S.produk.map(p => `<div class="skc"><span class="tag"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)}${p.aktif ? '' : ' (nonaktif)'}</span><div class="stp"><button type="button" data-sd="-1">−</button><input class="inp" type="number" min="0" inputmode="numeric" placeholder="?" value="${p.stok === null ? '' : p.stok}" data-sn="${esc(p.nama)}"><button type="button" data-sd="1">+</button></div><small class="su" data-su="${esc(p.nama)}"></small></div>`).join('')}</div><button class="btn" id="stsave">Simpan stok</button></div>`, 0];
 
 async function orderClick(b) {
@@ -449,11 +480,20 @@ async function orderClick(b) {
   if (d.pm !== undefined) { pd.metode = d.pm; $$('#pmc .chip').forEach(x => x.classList.toggle('on', x === b)); return pUpd(); }
   if (d.sd !== undefined) { const i = b.closest('.stp').querySelector('input'); i.value = Math.max(0, (Number(i.value) || 0) + Number(d.sd)); return; }
   if (b.id === 'pcancel') { editId = null; return go('pesanan'); }
+  if (b.id === 'scari') {
+    const q = $('#snm').value.trim(); if (!q) return toast('Isi nama pemesan', 1);
+    qNama = q; LS.s(NK, q); b.disabled = true;
+    try { S = await call('pub_getData', q); } catch (e) { toast(e.message, 1); }
+    b.disabled = false; return paint();
+  }
   if (b.id === 'psave') {
     const ci = cartInfo(); if (!ci.n) return toast('Pilih minimal 1 jus', 1);
-    const a = { items: Object.keys(cart).filter(k => cart[k] > 0).map(k => ({ jus: k, qty: cart[k] })), tanggal: $('#ptgl').value, metode: pd.metode, catatan: $('#pcat').value };
-    const ok = editId ? await sub(b, 'api_pesanEdit', [editId, a], 'Pesanan diperbarui') : await sub(b, 'api_pesanBuat', [a], 'Pesanan terkirim — tunggu konfirmasi penjual');
-    if (ok) { editId = null; ofil = A.role === 'admin' ? 'Menunggu' : 'Semua'; go('pesanan'); } else refresh();
+    const adm = A.role === 'admin', nama = $('#pnm').value.trim(), telp = $('#ptl').value.trim();
+    if (nama.length < 3) return toast('Isi nama pemesan (min. 3 karakter)', 1);
+    if (!adm && telp.replace(/\D/g, '').length < 8) return toast('Isi nomor telepon yang valid', 1);
+    const a = { nama, telp, items: Object.keys(cart).filter(k => cart[k] > 0).map(k => ({ jus: k, qty: cart[k] })), tanggal: $('#ptgl').value, metode: pd.metode, catatan: $('#pcat').value };
+    const ok = adm ? await sub(b, 'api_pesanBuat', [a], 'Pesanan tersimpan') : await sub(b, 'pub_pesanBuat', [a], 'Pesanan terkirim — cek di Status Pesanan');
+    if (ok) { if (!adm) { LS.s(NK, nama); LS.s(TLK, telp); qNama = nama; } ofil = adm ? 'Menunggu' : 'Semua'; go('pesanan'); } else refresh();
     return;
   }
   if (d.of !== undefined) { ofil = d.of; return pOrd(); }
@@ -470,7 +510,7 @@ async function orderClick(b) {
 function go(v) {
   if (A.role !== 'admin' && v !== 'pesan' && v !== 'pesanan') v = 'pesan';
   view = v; killCh(); $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  const m = V[v]; $('#title').textContent = m[0]; $('#period').hidden = !m[2];
+  const m = V[v]; $('#title').textContent = v === 'pesanan' && A.role !== 'admin' ? 'Status Pesanan' : m[0]; $('#period').hidden = !m[2];
   $('#view').innerHTML = typeof m[1] === 'function' ? m[1]() : m[1]; paint(); scrollTo(0, 0);
 }
 const paint = () => { $$('#period button').forEach(b => b.classList.toggle('on', b.dataset.p === period)); ({ ringkasan: pR, pemasukan: pP, pengeluaran: pE, riwayat: pH, tren: pT, harga: () => {}, pesan: pPesan, pesanan: pOrd, stok: pStok })[view](); badge(); };
@@ -547,20 +587,21 @@ $('#view').addEventListener('click', async e => {
 });
 $('#view').addEventListener('input', e => { if (e.target.id === 'qty' || e.target.id === 'harga') upd(); else if (view === 'riwayat') pH();  });
 $('#period').onclick = e => { const b = e.target.closest('button'); if (b) { period = b.dataset.p; paint(); } };
-$('#out').onclick = () => logout('');
+$('#out').onclick = () => A.role === 'admin' ? logout('') : showLogin();
+$('#view').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'snm') $('#scari').click(); });
 $('#rf').onclick = () => refresh(true);
 async function refresh(manual) {
   const r = $('#rf'); r.classList.add('spin');
-  try { S = await call('api_getData'); saveS(); if (S.role && S.role !== A.role) { A.role = S.role; start(); } else paint(); if (manual) toast('Data diperbarui'); } catch (e) { if (manual) toast(e.message, 1); }
+  try { S = A.role === 'admin' ? await call('api_getData') : await call('pub_getData', qNama); saveS(); if (S.role && S.role !== A.role) { A.role = S.role; start(); } else paint(); if (manual) toast('Data diperbarui'); } catch (e) { if (manual) toast(e.message, 1); }
   r.classList.remove('spin');
 }
 const NAVL = { ringkasan: 'Ringkasan', pemasukan: 'Jual', pengeluaran: 'Biaya', riwayat: 'Riwayat', tren: 'Tren', harga: 'Harga', pesan: 'Pesan', pesanan: 'Pesanan', stok: 'Stok' };
 function start(bg) {
   const adm = A.role === 'admin';
   $('#nav').className = $('#app').className = adm ? 'adm' : ''; document.body.classList.toggle('adm', adm);
-  $('#auth').hidden = true; $('#app').hidden = $('#nav').hidden = false; $('#who').textContent = A.user + (adm ? ' · admin' : '');
+  $('#auth').hidden = true; $('#app').hidden = $('#nav').hidden = false; $('#who').textContent = adm ? A.user + ' · admin' : ''; $('#out').textContent = adm ? 'Keluar' : 'Admin';
   const tabs = adm ? ['ringkasan', 'pemasukan', 'pengeluaran', 'riwayat', 'tren', 'harga', 'pesan', 'pesanan', 'stok'] : ['pesan', 'pesanan'];
-  $('#nav').innerHTML = tabs.map(k => `<button data-v="${k}"><svg viewBox="0 0 24 24">${ICON[k]}</svg>${NAVL[k]}${k === 'pesanan' ? '<b class="bdg" id="bd-pesanan"></b>' : ''}</button>`).join('');
+  $('#nav').innerHTML = tabs.map(k => `<button data-v="${k}"><svg viewBox="0 0 24 24">${ICON[k]}</svg>${k === 'pesanan' && !adm ? 'Status Pesanan' : NAVL[k]}${k === 'pesanan' ? '<b class="bdg" id="bd-pesanan"></b>' : ''}</button>`).join('');
   $$('#nav button').forEach(b => b.onclick = () => { if (b.dataset.v === 'pesan') editId = null; go(b.dataset.v); });
   const a = aktif()[0]; if (a) { draft.jus = a.nama; draft.harga = a.harga; }
   ofil = adm ? 'Menunggu' : 'Semua'; editId = null;
@@ -569,12 +610,12 @@ function start(bg) {
 
 /* Pesanan masuk / status pesanan diperbarui otomatis tiap 1 menit; hitung mundur batas edit tiap 30 detik */
 let tick = 0;
-setInterval(() => { if (!A.token || $('#app').hidden || document.hidden) return; tick++; if (view === 'pesanan') pOrd(); if (tick % 2 === 0) refresh(); }, 30000);
+setInterval(() => { if (!A.role || $('#app').hidden || document.hidden) return; tick++; if (view === 'pesanan') pOrd(); if (tick % 2 === 0) refresh(); }, 30000);
 
 /* ===== Mulai ===== */
 (function boot() {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
-  const t = LS.g(TK); if (!t) return authView('login');
+  const t = LS.g(TK); if (!t) return guestEnter();
   A = { token: t, user: t.split(':')[1] || '', role: '' };
   const c = LS.g(DK); if (c) { try { S = JSON.parse(c); if (S.role) { A.role = S.role; if (!S.pesanan) S.pesanan = []; return start(true); } } catch (e) {} }
   enterFlow(async () => ({ token: t, username: A.user }));
