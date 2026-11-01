@@ -111,6 +111,33 @@ label.f{display:block;font-weight:600;font-size:13.5px;margin:12px 0 5px}
 #toast.show{opacity:1;transform:translate(-50%,0)}#toast.e{background:var(--out)}
 .spin{animation:rot .8s linear infinite}@keyframes rot{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01s!important;transition-duration:.01s!important}}
+
+/* ===== Pemesanan ===== */
+#nav{overflow-x:auto;scrollbar-width:none}#nav::-webkit-scrollbar{display:none}
+#nav button{flex:1 0 auto;min-width:62px;position:relative}
+.bdg{position:absolute;top:1px;left:calc(50% + 5px);background:var(--out);color:#fff;font:600 10px Figtree,sans-serif;border-radius:9px;padding:1px 5px;min-width:16px;text-align:center}.bdg:empty{display:none}
+.av{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #eef2ec}.av:last-child{border:0}
+.av .tag{display:flex;align-items:center;gap:8px;font-weight:600}.av .tag i{width:12px;height:12px;border-radius:50%;border:1px solid #0003;flex:none}
+.av small{display:block;color:var(--mu);font-weight:400;font-size:12px}
+.sb{padding:4px 10px;border-radius:999px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.sb.ok{background:#e4f5ea;color:var(--in)}.sb.low{background:#fff3d6;color:#8a5a00}.sb.no{background:#fde8ec;color:#a3112b}.sb.na{background:var(--soft);color:var(--mu)}
+.chip.off{opacity:.45;text-decoration:line-through}
+.hint{font-size:13px;color:var(--mu);margin-top:8px}.hint.bad{color:var(--out)}
+.pay{margin-top:10px;background:var(--soft);border:1px dashed var(--line);border-radius:14px;padding:4px 12px}
+.pay .bk{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #e8eee5}.pay .bk:last-child{border:0}
+.pay small{display:block;color:var(--mu);font-size:12px}.pay b{font:700 17px 'Bricolage Grotesque',sans-serif;letter-spacing:.02em}
+.cp{background:var(--leaf);color:#fff;border:0;border-radius:9px;padding:6px 13px;font-size:13px;font-weight:600;flex:none}
+.od{padding:12px 0;border-bottom:1px solid #eef2ec}.od:last-child{border:0}
+.od .oh{display:flex;justify-content:space-between;align-items:center;gap:10px}.od small{display:block;color:var(--mu)}
+.od .cd{color:var(--l2);font-weight:600}.od .cd.off{color:var(--mu);font-weight:400}
+.st{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st.wait{background:#fff3d6;color:#8a5a00}.st.ok{background:#e4f5ea;color:var(--in)}.st.no{background:#fde8ec;color:#a3112b}
+.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.mb{background:#fff;border:1px solid var(--line);border-radius:9px;padding:6px 12px;font-size:13px;cursor:pointer}
+.mb.arm,.btn.arm{background:var(--out);border-color:var(--out);color:#fff}
+.btn.gh{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
+.pay-d summary{cursor:pointer;color:var(--l2);font-weight:600;font-size:13.5px;margin-top:8px}
+.pr .su{flex:1 1 100%;color:var(--mu);font-size:12px}
 </style>
 </head>
 <body>
@@ -149,7 +176,8 @@ const tgl = (s, o) => new Date(s + 'T12:00:00').toLocaleDateString('id-ID', o ||
 const sum = (a, f) => a.reduce((t, x) => t + f(x), 0), sleep = ms => new Promise(r => setTimeout(r, ms));
 const LS = { g: k => { try { return localStorage.getItem(k) } catch (e) { return null } }, s: (k, v) => { try { localStorage.setItem(k, v) } catch (e) {} }, d: k => { try { localStorage.removeItem(k) } catch (e) {} } };
 const TK = 'bt_token', DK = 'bt_data', METODE = ['Tunai', 'QRIS', 'Transfer'], KAT = ['Buah-buahan', 'Botol', 'Stiker', 'BBM / Ongkir', 'Es Batu', 'Lainnya'];
-let A = { token: '', user: '' }, S = { produk: [], pemasukan: [], pengeluaran: [] }, view = 'ringkasan', period = '7', draft = { jus: '', qty: 1, harga: 0 }, AM = 'login', authId = '';
+let A = { token: '', user: '', role: '' }, S = { produk: [], pemasukan: [], pengeluaran: [], pesanan: [] }, view = 'ringkasan', period = '7', draft = { jus: '', qty: 1, harga: 0 }, AM = 'login', authId = '', skew = 0, pd = { jus: '', qty: 1, metode: 'Tunai' }, editId = null, ofil = 'Semua';
+const BANK = [{ n: 'Bank Mandiri', no: '1410023555717', an: 'M AGUNG RIDHO ISLAMI' }, { n: 'BLU BCA', no: '008297786559', an: 'M Agung Ridho Islami' }], ADMV = ['ringkasan', 'pemasukan', 'pengeluaran', 'riwayat', 'tren', 'harga', 'stok'];
 
 /* ===== API ke Apps Script (text/plain = tanpa preflight CORS) ===== */
 async function call(fn, ...a) {
@@ -159,6 +187,7 @@ async function call(fn, ...a) {
   try { j = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args: a }) })).json(); }
   catch (e) { throw new Error('Tidak bisa terhubung. Periksa koneksi internet.'); }
   if (!j.ok) { if (/SESI_HABIS/.test(j.error) && A.token) logout('Sesi berakhir, silakan masuk lagi.'); throw new Error(j.error); }
+  if (j.data && j.data.now) skew = j.data.now - Date.now();
   return j.data;
 }
 const saveS = () => LS.s(DK, JSON.stringify(S));
@@ -186,8 +215,8 @@ const ldOff = () => { clearInterval(tm); cancelAnimationFrame(raf); };
 
 /* ===== Layar login ===== */
 const M = {
-  login: { t: 'Masuk', s: 'Masuk untuk membuka dashboard.', b: 'Masuk', f: [['u', 'Username atau email', 'text', 'autocapitalize=none autocomplete=username'], ['p', 'Password', 'password', 'autocomplete=current-password']], l: [['lupa', 'Lupa password?'], ['daftar', 'Daftar akun baru']] },
-  daftar: { t: 'Daftar', s: 'Buat akun untuk mengakses dashboard.', b: 'Daftar', f: [['u', 'Username', 'text', 'autocapitalize=none autocomplete=username'], ['e', 'Email', 'email', 'autocomplete=email'], ['p', 'Password (min. 8 karakter)', 'password', 'autocomplete=new-password'], ['p2', 'Ulangi password', 'password', 'autocomplete=new-password'], ['k', 'Kode pendaftaran', 'text', 'autocomplete=off']], l: [['login', 'Sudah punya akun? Masuk']] },
+  login: { t: 'Masuk', s: 'Masuk untuk memesan jus.', b: 'Masuk', f: [['u', 'Username atau email', 'text', 'autocapitalize=none autocomplete=username'], ['p', 'Password', 'password', 'autocomplete=current-password']], l: [['lupa', 'Lupa password?'], ['daftar', 'Daftar akun baru']] },
+  daftar: { t: 'Daftar', s: 'Buat akun untuk memesan jus. Username dipakai sebagai nama pemesan.', b: 'Daftar', f: [['u', 'Username', 'text', 'autocapitalize=none autocomplete=username'], ['e', 'Email', 'email', 'autocomplete=email'], ['p', 'Password (min. 8 karakter)', 'password', 'autocomplete=new-password'], ['p2', 'Ulangi password', 'password', 'autocomplete=new-password']], l: [['login', 'Sudah punya akun? Masuk']] },
   lupa: { t: 'Lupa password', s: 'Kode 6 digit dikirim ke email terdaftar.', b: 'Kirim kode', f: [['u', 'Username atau email', 'text', 'autocapitalize=none']], l: [['login', 'Kembali ke Masuk'], ['reset', 'Saya sudah punya kode']] },
   reset: { t: 'Password baru', s: 'Masukkan kode dari email dan password baru.', b: 'Simpan password', f: [['u', 'Username atau email', 'text', 'autocapitalize=none'], ['k', 'Kode 6 digit', 'text', 'inputmode=numeric maxlength=6 autocomplete=one-time-code'], ['p', 'Password baru', 'password', 'autocomplete=new-password'], ['p2', 'Ulangi password baru', 'password', 'autocomplete=new-password']], l: [['lupa', 'Kirim ulang kode'], ['login', 'Kembali ke Masuk']] }
 };
@@ -218,14 +247,14 @@ async function enterFlow(getAuth) {
   ldOn();
   try {
     const r = await getAuth(); A = { token: r.token, user: r.username }; LS.s(TK, r.token);
-    cap = 92; S = await call('api_getData'); saveS();
+    cap = 92; S = await call('api_getData'); A.role = S.role; saveS();
     await ldDone(); await sleep(350); start();
   } catch (e) {
-    ldOff(); A = { token: '', user: '' }; LS.d(TK); authView(AM, e.message); $('#ac').classList.add('shake');
+    ldOff(); A = { token: '', user: '', role: '' }; LS.d(TK); authView(AM, e.message); $('#ac').classList.add('shake');
   }
 }
 function logout(msg) {
-  LS.d(TK); LS.d(DK); A = { token: '', user: '' }; S = { produk: [], pemasukan: [], pengeluaran: [] }; killCh();
+  LS.d(TK); LS.d(DK); A = { token: '', user: '', role: '' }; S = { produk: [], pemasukan: [], pengeluaran: [], pesanan: [] }; editId = null; killCh();
   $('#app').hidden = $('#nav').hidden = true; $('#auth').hidden = false; AM = 'login'; authView('login', msg);
 }
 
@@ -269,7 +298,7 @@ function chart(id, cfg) {
 const killCh = () => { Object.values(CH).forEach(c => c.destroy()); for (const k in CH) delete CH[k]; };
 
 /* ===== Tampilan ===== */
-const ICON = { ringkasan: '<path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>', pemasukan: '<path d="M12 3v13m0 0l-5-5m5 5l5-5M4 21h16"/>', pengeluaran: '<path d="M12 17V4m0 0L7 9m5-5l5 5M4 21h16"/>', riwayat: '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8m0-4v4h4M12 7v5l3 2"/>', tren: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>', harga: '<path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 7.5h.01"/>' };
+const ICON = { ringkasan: '<path d="M3 11l9-8 9 8v9a1 1 0 01-1 1h-5v-6H9v6H4a1 1 0 01-1-1z"/>', pemasukan: '<path d="M12 3v13m0 0l-5-5m5 5l5-5M4 21h16"/>', pengeluaran: '<path d="M12 17V4m0 0L7 9m5-5l5 5M4 21h16"/>', riwayat: '<path d="M3 12a9 9 0 109-9 9 9 0 00-6.4 2.6L3 8m0-4v4h4M12 7v5l3 2"/>', tren: '<path d="M3 17l6-6 4 4 8-8M15 7h6v6"/>', harga: '<path d="M3 12V4h8l10 10-8 8z"/><path d="M7.5 7.5h.01"/>', pesan: '<path d="M5 8h14l-1.6 11a2 2 0 01-2 1.7H8.6a2 2 0 01-2-1.7zM9 8l1-5h4"/>', pesanan: '<path d="M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01"/>', stok: '<path d="M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8"/>' };
 const hex6 = c => /^#[0-9a-fA-F]{6}$/.test(c) ? c : '#999999';
 const LQ = {};
 function formIn() {
@@ -290,12 +319,115 @@ const V = {
   harga: ['Harga Jus', () => `<div class="card"><h2>Harga default per rasa</h2><p class="sub">Dipakai otomatis di menu Jual dan grafik. Ubah harga atau warna, lalu ketuk Simpan.</p>${S.produk.map(p => `<div class="pr"><span class="tag"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)}</span><input class="inp" type="number" min="0" inputmode="numeric" value="${p.harga}" data-n="${esc(p.nama)}"><input type="color" value="${hex6(p.warna)}" data-c="${esc(p.nama)}"><button class="btn sm" data-s="${esc(p.nama)}">Simpan</button><button class="del" data-p="${esc(p.nama)}">Hapus</button></div>`).join('')}</div><div class="card"><h2>Rasa baru</h2><p class="sub">Otomatis masuk di bawah rasa terakhir.</p><div class="pr"><input class="inp" id="nn" placeholder="mis. Lemon"><input class="inp" id="nh" type="number" min="0" inputmode="numeric" placeholder="Harga"><input type="color" id="nc" value="#ffd500"><button class="btn sm" id="addP">+ Tambah</button></div></div>`, 0],
   tren: ['Tren Harian', `<div class="g4" id="kpi"></div><div class="card"><h2>Pemasukan, pengeluaran, laba</h2><p class="sub">Garis laba di bawah nol berarti hari itu rugi.</p><div class="cb"><canvas id="cT1"></canvas></div></div><div class="card"><h2>Botol terjual per rasa</h2><p class="sub">Rasa yang menggerakkan penjualan tiap hari</p><div class="cb"><canvas id="cT2"></canvas></div></div>`, 1]
 };
+/* ===== PEMESANAN (pembeli & admin) ===== */
+const stokTxt = p => p.stok === null ? ['Belum diinfo', 'na'] : p.stok <= 0 ? ['Habis', 'no'] : p.stok <= 3 ? ['Sisa ' + p.stok, 'low'] : ['Tersedia ' + p.stok, 'ok'];
+const dtm = s => /^\d{4}-\d{2}-\d{2}/.test(s || '') ? tgl(s.slice(0, 10)) + ', ' + s.slice(11, 16) : '';
+const payBox = tot => `<div class="pay">${BANK.map(b => `<div class="bk"><div><small>${esc(b.n)} · a.n. ${esc(b.an)}</small><b>${esc(b.no)}</b></div><button type="button" class="cp" data-copy="${esc(b.no)}">Salin</button></div>`).join('')}${tot ? `<div class="bk"><div><small>Nominal transfer</small><b>${rp(tot)}</b></div><button type="button" class="cp" data-copy="${tot}">Salin</button></div>` : ''}</div>`;
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); }
+  catch (e) { const x = document.createElement('textarea'); x.value = t; x.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (_) {} x.remove(); }
+  toast('Tersalin: ' + t);
+}
+function arm(b) { // ketuk 2x untuk menjalankan aksi yang tidak bisa dibatalkan
+  if (b.classList.contains('arm')) return false;
+  const t = b.textContent; b.classList.add('arm'); b.textContent = 'Yakin?';
+  setTimeout(() => { b.classList.remove('arm'); b.textContent = t; }, 3000); return true;
+}
+function badge() { const n = A.role === 'admin' ? (S.pesanan || []).filter(o => o.status === 'Menunggu').length : 0, e = $('#bd-pesanan'); if (e) e.textContent = n || ''; }
+
+function formPesan() {
+  const l = aktif(), o = editId && S.pesanan.find(x => x.id === editId); if (editId && !o) editId = null;
+  if (o) pd = { jus: o.jus, qty: o.qty, metode: o.metode };
+  else { const f = l.find(p => p.stok === null || p.stok > 0) || l[0]; pd = { jus: f ? f.nama : '', qty: 1, metode: 'Tunai' }; }
+  return `<div class="card"><h2>Ketersediaan jus</h2><p class="sub" id="avt"></p><div id="avl"></div></div>
+  <div class="card"><h2>${o ? 'Ubah pesanan' : 'Pesan jus'}</h2><p class="sub">${o ? 'Bisa diubah selama belum dikonfirmasi dan belum lewat batas waktu.' : 'Pilih jus, jumlah, tanggal, lalu cara bayar.'}</p>
+  <div class="chips" id="pch">${l.map(p => `<button type="button" class="chip${p.nama === pd.jus ? ' on' : ''}" data-pj="${esc(p.nama)}"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)} · ${rp(p.harga)}</button>`).join('')}</div>
+  <div class="row"><div><label class="f">Jumlah</label><div class="stp"><button type="button" id="pmn">−</button><input class="inp" id="pq" type="number" min="1" max="99" value="${pd.qty}" inputmode="numeric"><button type="button" id="ppl">+</button></div></div>
+  <div><label class="f">Tanggal pesan</label><input class="inp" id="ptgl" type="date" min="${today()}" value="${o ? esc(o.tanggal) : today()}"></div></div>
+  <p class="hint" id="phint"></p>
+  <label class="f">Pembayaran</label><div class="chips" id="pmc">${['Tunai', 'Transfer'].map(m => `<button type="button" class="chip${m === pd.metode ? ' on' : ''}" data-pm="${m}">${m}</button>`).join('')}</div>
+  <div id="payinfo"></div>
+  <label class="f">Catatan (opsional)</label><input class="inp" id="pcat" maxlength="200" value="${o ? esc(o.catatan) : ''}" placeholder="mis. less sugar, tanpa es">
+  <div class="tot"><span>Total</span><strong id="ptot">Rp0</strong></div>
+  <button class="btn" id="psave">${o ? 'Simpan perubahan' : 'Pesan sekarang'}</button>${o ? '<button class="btn gh" id="pcancel">Batal ubah</button>' : ''}</div>`;
+}
+function pPesan() {
+  if (!$('#avl')) return;
+  const ts = S.produk.map(p => p.stokUpdate).filter(Boolean).sort();
+  $('#avt').textContent = ts.length ? 'Stok terakhir diperbarui: ' + dtm(ts[ts.length - 1]) : 'Penjual belum menginput stok — tetap bisa dipesan.';
+  $('#avl').innerHTML = aktif().map(p => { const [t, c] = stokTxt(p); return `<div class="av"><span class="tag"><i style="background:${esc(p.warna)}"></i><span>${esc(p.nama)}<small>${p.stokUpdate ? 'Diperbarui ' + dtm(p.stokUpdate) : 'Belum diinfo'}</small></span></span><span class="sb ${c}">${t}</span></div>`; }).join('') || '<div class="empty">Belum ada jus.</div>';
+  $$('#pch .chip').forEach(c => { const p = S.produk.find(x => x.nama === c.dataset.pj); c.classList.toggle('off', !!(p && p.stok !== null && p.stok <= 0)); });
+  pUpdTot();
+}
+function pUpdTot() {
+  const q = $('#pq'); if (!q) return;
+  pd.qty = Math.max(1, Math.min(99, Math.floor(Number(q.value)) || 1));
+  const p = S.produk.find(x => x.nama === pd.jus), tot = p ? p.harga * pd.qty : 0, h = $('#phint');
+  $('#ptot').textContent = rp(tot);
+  h.textContent = p && p.stok !== null ? (p.stok <= 0 ? p.nama + ' sedang habis.' : pd.qty > p.stok ? 'Melebihi stok — tersisa ' + p.stok + '.' : '') : '';
+  h.className = 'hint' + (h.textContent ? ' bad' : '');
+  $('#payinfo').innerHTML = pd.metode === 'Transfer' ? `<p class="hint">Transfer ke salah satu rekening ini, lalu tunggu konfirmasi penjual:</p>${payBox(tot)}` : '<p class="hint">Bayar tunai langsung ke penjual.</p>';
+}
+
+function orderHtml(o, adm, me, now) {
+  const own = o.pembeli.toLowerCase() === me, wait = o.status === 'Menunggu', inWin = wait && now < o.batas;
+  const canEdit = own && inWin, canCancel = wait && (adm || (own && inWin));
+  const left = Math.max(0, Math.ceil((o.batas - now) / 60000));
+  const sisa = own && inWin ? `<small class="cd">Bisa diubah/dibatalkan ${left >= 60 ? Math.floor(left / 60) + ' j ' + (left % 60) + ' m' : left + ' m'} lagi</small>` : own && wait ? '<small class="cd off">Batas waktu ubah (2 jam) sudah lewat</small>' : '';
+  const pay = own && wait && o.metode === 'Transfer' ? `<details class="pay-d"><summary>Lihat rekening transfer</summary>${payBox(o.total)}</details>` : '';
+  const cls = { Menunggu: 'wait', Dikonfirmasi: 'ok', Dibatalkan: 'no' }[o.status] || 'wait';
+  const info = o.status === 'Menunggu' ? '' : `<small>${o.status} ${dtm(o.diperbarui)}${o.oleh ? ' oleh ' + esc(o.oleh) : ''}</small>`;
+  const acts = [wait && adm ? `<button class="btn sm" data-ok="${esc(o.id)}">Konfirmasi</button>` : '', canEdit ? `<button class="mb" data-oe="${esc(o.id)}">Ubah</button>` : '', canCancel ? `<button class="mb" data-ox="${esc(o.id)}">${own ? 'Batalkan' : 'Tolak'}</button>` : ''].join('');
+  return `<div class="od"><div class="oh"><b>${o.qty}× ${esc(o.jus)}</b><span class="st ${cls}">${esc(o.status)}</span></div>
+  <small>${adm ? 'Pemesan: <b>' + esc(o.pembeli) + '</b>' + (own ? ' (Anda)' : '') + ' · ' : ''}Untuk ${tgl(o.tanggal, { day: 'numeric', month: 'short', year: 'numeric' })} · ${esc(o.metode)}</small>
+  <small>Dipesan ${dtm(o.dibuat)}${o.catatan ? ' · ' + esc(o.catatan) : ''}</small>${info}${sisa}
+  <div class="oh" style="margin-top:4px"><span class="amt in">${rp(o.total)}</span></div>${pay}${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
+}
+function pOrd() {
+  if (!$('#ol')) return;
+  const adm = A.role === 'admin', me = A.user.toLowerCase(), now = Date.now() + skew;
+  const all = S.pesanan.slice().sort((a, b) => b.dibuat.localeCompare(a.dibuat)), cnt = s => all.filter(o => o.status === s).length;
+  $('#ofc').innerHTML = ['Menunggu', 'Dikonfirmasi', 'Dibatalkan', 'Semua'].map(t => `<button type="button" class="chip${t === ofil ? ' on' : ''}" data-of="${t}">${t}${t === 'Semua' ? '' : ' (' + cnt(t) + ')'}</button>`).join('');
+  const rows = ofil === 'Semua' ? all : all.filter(o => o.status === ofil);
+  $('#ott').textContent = rows.length + ' pesanan' + (adm && ofil === 'Menunggu' && rows.length ? ' · menunggu konfirmasi ' + rp(sum(rows, o => o.total)) : '');
+  $('#ol').innerHTML = rows.length ? rows.slice(0, 100).map(o => orderHtml(o, adm, me, now)).join('') : `<div class="empty">${ofil === 'Semua' ? 'Belum ada pesanan.' : 'Tidak ada pesanan ' + ofil.toLowerCase() + '.'}</div>`;
+}
+function pStok() { $$('#stl [data-su]').forEach(e => { const p = S.produk.find(x => x.nama === e.dataset.su); e.textContent = p && p.stokUpdate ? 'Diperbarui ' + dtm(p.stokUpdate) : 'Belum pernah diinfo'; }); }
+V.pesan = ['Pesan Jus', formPesan, 0];
+V.pesanan = ['Pesanan', `<div class="card"><div class="chips" id="ofc"></div><p class="sub" id="ott" style="margin-top:10px"></p><div id="ol"></div></div>`, 0];
+V.stok = ['Stok Jus', () => `<div class="card"><h2>Update stok</h2><p class="sub">Isi jumlah yang tersedia. 0 = habis, kosong = belum diinfo. Pembeli langsung melihat angka ini beserta waktu pembaruannya.</p><div id="stl">${S.produk.map(p => `<div class="pr"><span class="tag"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)}${p.aktif ? '' : ' (nonaktif)'}</span><input class="inp" type="number" min="0" inputmode="numeric" placeholder="belum diinfo" value="${p.stok === null ? '' : p.stok}" data-sn="${esc(p.nama)}"><small class="su" data-su="${esc(p.nama)}"></small></div>`).join('')}</div><button class="btn" id="stsave">Simpan stok</button></div>`, 0];
+
+async function orderClick(b) {
+  const d = b.dataset;
+  if (d.copy !== undefined) return copyText(d.copy);
+  if (d.pj !== undefined) { const p = S.produk.find(x => x.nama === d.pj); if (p && p.stok !== null && p.stok <= 0) return toast('Stok ' + p.nama + ' sedang habis', 1); pd.jus = d.pj; $$('#pch .chip').forEach(x => x.classList.toggle('on', x === b)); return pUpdTot(); }
+  if (d.pm !== undefined) { pd.metode = d.pm; $$('#pmc .chip').forEach(x => x.classList.toggle('on', x === b)); return pUpdTot(); }
+  if (b.id === 'pmn' || b.id === 'ppl') { $('#pq').value = Math.min(99, Math.max(1, (Number($('#pq').value) || 1) + (b.id === 'ppl' ? 1 : -1))); return pUpdTot(); }
+  if (b.id === 'pcancel') { editId = null; return go('pesanan'); }
+  if (b.id === 'psave') {
+    pUpdTot(); const a = { jus: pd.jus, qty: pd.qty, tanggal: $('#ptgl').value, metode: pd.metode, catatan: $('#pcat').value };
+    const ok = editId ? await sub(b, 'api_pesanEdit', [editId, a], 'Pesanan diperbarui') : await sub(b, 'api_pesanBuat', [a], 'Pesanan terkirim — tunggu konfirmasi penjual');
+    if (ok) { editId = null; ofil = A.role === 'admin' ? 'Menunggu' : 'Semua'; go('pesanan'); } else refresh();
+    return;
+  }
+  if (d.of !== undefined) { ofil = d.of; return pOrd(); }
+  if (d.oe !== undefined) { editId = d.oe; return go('pesan'); }
+  if (d.ox !== undefined) { if (arm(b)) return; if (!(await sub(b, 'api_pesanBatal', [d.ox], 'Pesanan dibatalkan'))) refresh(); return; }
+  if (d.ok !== undefined) { if (arm(b)) return; if (!(await sub(b, 'api_pesanKonfirmasi', [d.ok], 'Dikonfirmasi & dicatat sebagai pemasukan'))) refresh(); return; }
+  if (b.id === 'stsave') {
+    const ch = []; $$('#stl [data-sn]').forEach(i => { const p = S.produk.find(x => x.nama === i.dataset.sn), v = i.value.trim(); if (v !== (p && p.stok !== null ? String(p.stok) : '')) ch.push({ nama: i.dataset.sn, stok: v }); });
+    if (!ch.length) return toast('Tidak ada perubahan stok');
+    await sub(b, 'api_stokSimpan', [ch], 'Stok diperbarui');
+  }
+}
+
 function go(v) {
+  if (A.role !== 'admin' && v !== 'pesan' && v !== 'pesanan') v = 'pesan';
   view = v; killCh(); $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   const m = V[v]; $('#title').textContent = m[0]; $('#period').hidden = !m[2];
   $('#view').innerHTML = typeof m[1] === 'function' ? m[1]() : m[1]; paint(); scrollTo(0, 0);
 }
-const paint = () => { $$('#period button').forEach(b => b.classList.toggle('on', b.dataset.p === period)); ({ ringkasan: pR, pemasukan: pP, pengeluaran: pE, riwayat: pH, tren: pT, harga: () => {} })[view](); };
+const paint = () => { $$('#period button').forEach(b => b.classList.toggle('on', b.dataset.p === period)); ({ ringkasan: pR, pemasukan: pP, pengeluaran: pE, riwayat: pH, tren: pT, harga: () => {}, pesan: pPesan, pesanan: pOrd, stok: pStok })[view](); badge(); };
 
 function pR() {
   const { start, end } = range(), a = agg(start, end), n = a.days.length, f = r => r.tanggal >= start && r.tanggal <= end;
@@ -348,6 +480,7 @@ async function sub(btn, fn, args, ok) {
 const upd = () => { draft.qty = Math.max(1, Number($('#qty').value) || 1); draft.harga = Number($('#harga').value) || 0; $('#tot').textContent = rp(draft.qty * draft.harga); };
 $('#view').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
+  if (view === 'pesan' || view === 'pesanan' || view === 'stok') return orderClick(b);
   if (b.classList.contains('chip')) { draft.jus = b.dataset.n; draft.harga = S.produk.find(p => p.nama === draft.jus).harga; $('#harga').value = draft.harga; $$('.chip').forEach(x => x.classList.toggle('on', x === b)); upd(); }
   else if (b.id === 'mn' || b.id === 'pl') { $('#qty').value = Math.max(1, (Number($('#qty').value) || 1) + (b.id === 'pl' ? 1 : -1)); upd(); }
   else if (b.id === 'save' && view === 'pemasukan') { upd(); if (await sub(b, 'api_addIncome', [{ jus: draft.jus, qty: draft.qty, harga: draft.harga, tanggal: $('#tgl').value, metode: $('#met').value, catatan: $('#cat').value }], `${draft.qty}× ${draft.jus} tersimpan`)) { $('#qty').value = 1; $('#cat').value = ''; upd(); } }
@@ -363,29 +496,37 @@ $('#view').addEventListener('click', async e => {
     b.disabled = true; try { S = await call('api_delete', b.dataset.j, b.dataset.id); saveS(); toast('Transaksi dihapus'); paint(); } catch (er) { toast(er.message, 1); b.disabled = false; }
   }
 });
-$('#view').addEventListener('input', e => { if (e.target.id === 'qty' || e.target.id === 'harga') upd(); else if (view === 'riwayat') pH(); });
+$('#view').addEventListener('input', e => { if (e.target.id === 'qty' || e.target.id === 'harga') upd(); else if (view === 'riwayat') pH(); else if (view === 'pesan' && e.target.id === 'pq') pUpdTot(); });
 $('#period').onclick = e => { const b = e.target.closest('button'); if (b) { period = b.dataset.p; paint(); } };
 $('#out').onclick = () => logout('');
 $('#rf').onclick = () => refresh(true);
 async function refresh(manual) {
   const r = $('#rf'); r.classList.add('spin');
-  try { S = await call('api_getData'); saveS(); paint(); if (manual) toast('Data diperbarui'); } catch (e) { if (manual) toast(e.message, 1); }
+  try { S = await call('api_getData'); saveS(); if (S.role && S.role !== A.role) { A.role = S.role; start(); } else paint(); if (manual) toast('Data diperbarui'); } catch (e) { if (manual) toast(e.message, 1); }
   r.classList.remove('spin');
 }
+const NAVL = { ringkasan: 'Ringkasan', pemasukan: 'Jual', pengeluaran: 'Biaya', riwayat: 'Riwayat', tren: 'Tren', harga: 'Harga', pesan: 'Pesan', pesanan: 'Pesanan', stok: 'Stok' };
 function start(bg) {
-  $('#auth').hidden = true; $('#app').hidden = $('#nav').hidden = false; $('#who').textContent = A.user;
-  $('#nav').innerHTML = [['ringkasan', 'Ringkasan'], ['pemasukan', 'Jual'], ['pengeluaran', 'Biaya'], ['riwayat', 'Riwayat'], ['tren', 'Tren'], ['harga', 'Harga']].map(v => `<button data-v="${v[0]}"><svg viewBox="0 0 24 24">${ICON[v[0]]}</svg>${v[1]}</button>`).join('');
-  $$('#nav button').forEach(b => b.onclick = () => go(b.dataset.v));
+  const adm = A.role === 'admin';
+  $('#auth').hidden = true; $('#app').hidden = $('#nav').hidden = false; $('#who').textContent = A.user + (adm ? ' · admin' : '');
+  const tabs = adm ? ['ringkasan', 'pemasukan', 'pengeluaran', 'riwayat', 'tren', 'harga', 'pesan', 'pesanan', 'stok'] : ['pesan', 'pesanan'];
+  $('#nav').innerHTML = tabs.map(k => `<button data-v="${k}"><svg viewBox="0 0 24 24">${ICON[k]}</svg>${NAVL[k]}${k === 'pesanan' ? '<b class="bdg" id="bd-pesanan"></b>' : ''}</button>`).join('');
+  $$('#nav button').forEach(b => b.onclick = () => { if (b.dataset.v === 'pesan') editId = null; go(b.dataset.v); });
   const a = aktif()[0]; if (a) { draft.jus = a.nama; draft.harga = a.harga; }
-  go('ringkasan'); if (bg) refresh();
+  ofil = adm ? 'Menunggu' : 'Semua'; editId = null;
+  go(adm ? 'ringkasan' : 'pesan'); if (bg) refresh();
 }
+
+/* Pesanan masuk / status pesanan diperbarui otomatis tiap 1 menit; hitung mundur batas edit tiap 30 detik */
+let tick = 0;
+setInterval(() => { if (!A.token || $('#app').hidden || document.hidden) return; tick++; if (view === 'pesanan') pOrd(); if (tick % 2 === 0) refresh(); }, 30000);
 
 /* ===== Mulai ===== */
 (function boot() {
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
   const t = LS.g(TK); if (!t) return authView('login');
-  A = { token: t, user: t.split(':')[1] || '' };
-  const c = LS.g(DK); if (c) { try { S = JSON.parse(c); return start(true); } catch (e) {} }
+  A = { token: t, user: t.split(':')[1] || '', role: '' };
+  const c = LS.g(DK); if (c) { try { S = JSON.parse(c); if (S.role) { A.role = S.role; if (!S.pesanan) S.pesanan = []; return start(true); } } catch (e) {} }
   enterFlow(async () => ({ token: t, username: A.user }));
 })();
 </script>
