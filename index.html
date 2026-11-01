@@ -138,6 +138,11 @@ label.f{display:block;font-weight:600;font-size:13.5px;margin:12px 0 5px}
 .btn.gh{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
 .pay-d summary{cursor:pointer;color:var(--l2);font-weight:600;font-size:13.5px;margin-top:8px}
 .pr .su{flex:1 1 100%;color:var(--mu);font-size:12px}
+/* nav admin 2 baris supaya semua menu terlihat */
+#nav.adm{display:grid;grid-template-columns:repeat(5,1fr);overflow:visible;gap:2px}
+#nav.adm button{min-width:0}
+#app.adm{padding-bottom:calc(150px + var(--sb))}
+body.adm #toast{bottom:calc(150px + var(--sb))}
 </style>
 </head>
 <body>
@@ -312,7 +317,7 @@ function formIn() {
   <div class="card"><h2>Terjual hari ini</h2><p class="sub" id="tt"></p><ul class="feed" id="tl"></ul></div>`;
 }
 const V = {
-  ringkasan: ['Ringkasan', `<div class="rack" id="rack"></div><div class="g4" id="kpi"></div><div class="card"><h2>Pemasukan vs pengeluaran</h2><p class="sub" id="rg"></p><div class="cb"><canvas id="cTren"></canvas></div></div><div class="card"><h2>Aktivitas terbaru</h2><ul class="feed" id="feed"></ul></div><div class="card"><h2>Pengeluaran per kategori</h2><div id="bars"></div></div><div class="card"><h2>Metode pembayaran</h2><div class="cb sm"><canvas id="cMet"></canvas></div></div>`, 1],
+  ringkasan: ['Ringkasan', `<div id="pbn"></div><div class="rack" id="rack"></div><div class="g4" id="kpi"></div><div class="card"><h2>Pemasukan vs pengeluaran</h2><p class="sub" id="rg"></p><div class="cb"><canvas id="cTren"></canvas></div></div><div class="card"><h2>Aktivitas terbaru</h2><ul class="feed" id="feed"></ul></div><div class="card"><h2>Pengeluaran per kategori</h2><div id="bars"></div></div><div class="card"><h2>Metode pembayaran</h2><div class="cb sm"><canvas id="cMet"></canvas></div></div>`, 1],
   pemasukan: ['Pemasukan', formIn, 0],
   pengeluaran: ['Pengeluaran', () => `<div class="card"><h2>Pengeluaran baru</h2><p class="sub">Catat biaya agar laba bersih akurat.</p><label class="f">Kategori</label><select class="inp" id="kat">${KAT.map(k => `<option>${k}</option>`).join('')}</select><label class="f">Keterangan</label><input class="inp" id="ket"><div class="row"><div><label class="f">Jumlah (Rp)</label><input class="inp" id="jml" type="number" min="0" inputmode="numeric"></div><div><label class="f">Tanggal</label><input class="inp" id="tgl" type="date" value="${today()}"></div></div><button class="btn red" id="save">Simpan pengeluaran</button></div><div class="card"><h2>Pengeluaran terakhir</h2><p class="sub" id="tt"></p><ul class="feed" id="tl"></ul></div>`, 0],
   riwayat: ['Riwayat', () => `<div class="card"><div class="fl"><input class="inp" id="fq" placeholder="Cari catatan / metode…"><select class="inp" id="fj"><option value="">Semua rasa</option>${S.produk.map(p => `<option>${esc(p.nama)}</option>`).join('')}</select><input class="inp" id="ff" type="date" title="Dari"><input class="inp" id="ft" type="date" title="Sampai"></div><p class="sub" id="tt"></p><ul class="feed" id="tl"></ul></div>`, 0],
@@ -439,6 +444,8 @@ function pR() {
   requestAnimationFrame(() => requestAnimationFrame(() => $$('.lq').forEach(l => { l.style.height = l.dataset.h + '%'; LQ[l.dataset.n] = l.dataset.h; })));
   $('#kpi').innerHTML = kpi('Pemasukan', rp(tin), dl(tin, sum(pi, r => r.total))) + kpi('Pengeluaran', rp(to), dl(to, sum(S.pengeluaran.filter(g), r => r.jumlah))) + kpi('Laba bersih', rp(lb), `<em>${tin ? Math.round(lb / tin * 100) + '% dari pemasukan' : 'belum ada data'}</em>`, 1) + kpi('Botol terjual', bt.toLocaleString('id-ID'), dl(bt, sum(pi, r => r.qty)));
   $('#rg').textContent = tgl(start) + ' – ' + tgl(end);
+  const w = (S.pesanan || []).filter(o => o.status === 'Menunggu').length;
+  $('#pbn').innerHTML = w ? `<div class="card" style="background:#fff3d6;border-color:#f0d58a"><b>${w} pesanan menunggu konfirmasi</b><br><button class="btn sm" id="gopes" style="margin-top:8px">Lihat &amp; konfirmasi</button></div>` : '';
   const feed = inc.map(r => ({ t: 1, k: r.tanggal + r.dibuat, r })).concat(exp.map(r => ({ t: 0, k: r.tanggal + r.dibuat, r }))).sort((x, y) => y.k.localeCompare(x.k)).slice(0, 6);
   $('#feed').innerHTML = feed.length ? feed.map(({ t, r }) => t ? `<li><div><b>${r.qty}× ${esc(r.jus)}</b><small>${tgl(r.tanggal)} · ${esc(r.metode)}</small></div><span class="amt in">+${rp(r.total)}</span></li>` : `<li><div><b>${esc(r.kategori)}</b><small>${tgl(r.tanggal)} · ${esc(r.keterangan || '-')}</small></div><span class="amt out">-${rp(r.jumlah)}</span></li>`).join('') : '<div class="empty">Belum ada transaksi pada periode ini.</div>';
   $('#bars').innerHTML = bars(exp);
@@ -480,6 +487,7 @@ async function sub(btn, fn, args, ok) {
 const upd = () => { draft.qty = Math.max(1, Number($('#qty').value) || 1); draft.harga = Number($('#harga').value) || 0; $('#tot').textContent = rp(draft.qty * draft.harga); };
 $('#view').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'gopes') { ofil = 'Menunggu'; return go('pesanan'); }
   if (view === 'pesan' || view === 'pesanan' || view === 'stok') return orderClick(b);
   if (b.classList.contains('chip')) { draft.jus = b.dataset.n; draft.harga = S.produk.find(p => p.nama === draft.jus).harga; $('#harga').value = draft.harga; $$('.chip').forEach(x => x.classList.toggle('on', x === b)); upd(); }
   else if (b.id === 'mn' || b.id === 'pl') { $('#qty').value = Math.max(1, (Number($('#qty').value) || 1) + (b.id === 'pl' ? 1 : -1)); upd(); }
@@ -508,6 +516,7 @@ async function refresh(manual) {
 const NAVL = { ringkasan: 'Ringkasan', pemasukan: 'Jual', pengeluaran: 'Biaya', riwayat: 'Riwayat', tren: 'Tren', harga: 'Harga', pesan: 'Pesan', pesanan: 'Pesanan', stok: 'Stok' };
 function start(bg) {
   const adm = A.role === 'admin';
+  $('#nav').className = $('#app').className = adm ? 'adm' : ''; document.body.classList.toggle('adm', adm);
   $('#auth').hidden = true; $('#app').hidden = $('#nav').hidden = false; $('#who').textContent = A.user + (adm ? ' · admin' : '');
   const tabs = adm ? ['ringkasan', 'pemasukan', 'pengeluaran', 'riwayat', 'tren', 'harga', 'pesan', 'pesanan', 'stok'] : ['pesan', 'pesanan'];
   $('#nav').innerHTML = tabs.map(k => `<button data-v="${k}"><svg viewBox="0 0 24 24">${ICON[k]}</svg>${NAVL[k]}${k === 'pesanan' ? '<b class="bdg" id="bd-pesanan"></b>' : ''}</button>`).join('');
