@@ -153,6 +153,7 @@ body.adm #toast{bottom:calc(150px + var(--sb))}
 .vr.on .vn{color:var(--l2)}.vr.on .vs button:last-child{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .vr.off .vs{opacity:.3;pointer-events:none}.vr .sb{min-width:64px;text-align:center;flex:none;padding:4px 6px;font-size:12px}
 .it{display:flex;justify-content:space-between;gap:10px;font-weight:500;padding:2px 0}
+.sw{position:relative;overflow:hidden;border-radius:8px}.swa{position:absolute;top:0;right:0;bottom:0;width:88px;display:flex}.swb{flex:1;border:0;background:var(--out);color:#fff;font-weight:600;font-size:13px;cursor:pointer}.swb.arm{background:#8f1d2c}.swc{position:relative;background:#fff;padding:6px 2px;transition:transform .18s;touch-action:pan-y;user-select:none;-webkit-user-select:none}.sw.open .swc{transform:translateX(-88px)}.sw.drag .swc{transition:none}.sw+.sw{border-top:1px solid #eef2ec}
 /* stok: geser ke samping */
 .sk{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;padding:4px 2px 12px;-webkit-overflow-scrolling:touch}
 .skc{flex:0 0 160px;scroll-snap-align:start;background:var(--soft);border:1.5px solid var(--line);border-radius:14px;padding:12px}
@@ -389,7 +390,7 @@ function grp() {
   (S.pesanan || []).forEach(r => {
     const k = r.grup || r.id; let g = m[k];
     if (!g) { g = m[k] = { grup: k, pembeli: r.pembeli, items: [], total: 0, tanggal: r.tanggal, metode: r.metode, catatan: r.catatan, status: r.status, dibuat: r.dibuat, batas: r.batas, diperbarui: r.diperbarui, oleh: r.oleh }; out.push(g); }
-    g.items.push({ jus: r.jus, qty: r.qty, total: r.total }); g.total += r.total;
+    g.items.push({ id: r.id, jus: r.jus, qty: r.qty, total: r.total }); g.total += r.total;
   });
   return out;
 }
@@ -437,6 +438,7 @@ function pUpd() {
   $('#payinfo').innerHTML = pd.metode === 'Transfer' ? `<p class="hint">Transfer ke salah satu rekening ini, lalu tunggu konfirmasi penjual:</p>${payBox(ci.tot)}` : '<p class="hint">Bayar tunai langsung ke penjual.</p>';
 }
 
+let swOpen = ''; // id item yang sedang terbuka (digeser) supaya tidak menutup saat data diperbarui
 function orderHtml(o, adm) {
   const wait = o.status === 'Menunggu', cls = { Menunggu: 'wait', Dikonfirmasi: 'ok', Dibatalkan: 'no' }[o.status] || 'wait';
   const nItem = o.items.reduce((t, i) => t + i.qty, 0), id = esc(o.grup), tg = tgl(o.tanggal, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -444,10 +446,13 @@ function orderHtml(o, adm) {
   const tel = adm && o.telp ? `<small>Telp: <a href="tel:${esc(o.telp)}">${esc(o.telp)}</a></small>` : '';
   const info = wait ? '' : `<small>${esc(o.status)} ${dtm(o.diperbarui)}${adm && o.oleh ? ' oleh ' + esc(o.oleh) : ''}</small>`;
   const pay = !adm && wait && o.metode === 'Transfer' ? `<details class="pay-d"><summary>Lihat rekening transfer</summary>${payBox(o.total)}</details>` : '';
-  const acts = adm && wait ? `<button class="btn sm" data-ok="${id}">Konfirmasi</button><button class="mb" data-ox="${id}">Tolak</button>` : '';
+  const acts = adm ? (wait ? `<button class="btn sm" data-ok="${id}">Konfirmasi</button><button class="mb" data-ox="${id}">Tolak</button>` : '') + (o.status !== 'Dibatalkan' ? `<button type="button" class="mb" data-rc="${id}">Share recipt</button>` : '') : '';
+  const itm = i => adm
+    ? `<div class="sw${swOpen === i.id ? ' open' : ''}" data-sw="${esc(i.id)}"><div class="swa"><button type="button" class="swb" data-od="${esc(i.id)}">Hapus</button></div><div class="it swc"><span>${i.qty}× ${esc(i.jus)}</span><span>${rp(i.total)}</span></div></div>`
+    : `<div class="it"><span>${i.qty}× ${esc(i.jus)}</span><span>${rp(i.total)}</span></div>`;
   return `<div class="od"><div class="oh"><b>${head}</b><span class="st ${cls}">${esc(o.status)}</span></div>${adm ? '' : `<small>Untuk ${tg} · ${esc(o.metode)}</small>`}${tel}
-  <div style="margin:6px 0">${o.items.map(i => `<div class="it"><span>${i.qty}× ${esc(i.jus)}</span><span>${rp(i.total)}</span></div>`).join('')}</div>
-  <small>Dipesan ${dtm(o.dibuat)}${o.catatan ? ' · ' + esc(o.catatan) : ''}</small>${info}
+  <div style="margin:6px 0">${o.items.map(itm).join('')}</div>
+  <small>Dipesan ${dtm(o.dibuat)}${adm ? ' · #' + id : ''}${o.catatan ? ' · ' + esc(o.catatan) : ''}</small>${info}
   <div class="oh" style="margin-top:4px"><span>Total</span><span class="amt in">${rp(o.total)}</span></div>${pay}${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
 }
 function pOrd() {
@@ -461,10 +466,9 @@ function pOrd() {
     $('#ol').innerHTML = !qNama ? '<div class="empty">Ketik nama pemesan di atas, lalu ketuk Cari.</div>' : rows.length ? rows.slice(0, 100).map(o => orderHtml(o, false)).join('') : `<div class="empty">${all.length ? 'Tidak ada pesanan ' + ofil.toLowerCase() + '.' : 'Belum ada pesanan atas nama ini.'}</div>`;
     return;
   }
-  $('#ott').textContent = rows.length + ' pesanan' + (ofil === 'Menunggu' && rows.length ? ' · menunggu konfirmasi ' + rp(sum(rows, o => o.total)) : '');
-  const gm = {}, gl = [];
-  rows.slice(0, 100).forEach(o => { const k = o.pembeli.toLowerCase(); let g = gm[k]; if (!g) { g = gm[k] = { k, nama: o.pembeli, list: [] }; gl.push(g); } g.list.push(o); });
-  $('#ol').innerHTML = gl.length ? gl.map(g => `<div class="gg"><div class="gh"><b>${esc(g.nama)}</b><span class="gr"><span>${g.list.length} pesanan · ${sum(g.list, o => sum(o.items, i => i.qty))} botol · ${rp(sum(g.list, o => o.total))}</span><button type="button" class="mb" data-rc="${esc(g.k)}">Share recipt</button></span></div>${g.list.map(o => orderHtml(o, true)).join('')}</div>`).join('') : `<div class="empty">${ofil === 'Semua' ? 'Belum ada pesanan.' : 'Tidak ada pesanan ' + ofil.toLowerCase() + '.'}</div>`;
+  // admin: 1 kartu = 1 kali order = 1 recipt (nama sama tapi jam pesan berbeda tetap terpisah)
+  $('#ott').textContent = rows.length + ' pesanan' + (ofil === 'Menunggu' && rows.length ? ' · menunggu konfirmasi ' + rp(sum(rows, o => o.total)) : '') + (rows.length ? ' · geser item ke kiri untuk hapus' : '');
+  $('#ol').innerHTML = rows.length ? rows.slice(0, 100).map(o => orderHtml(o, true)).join('') : `<div class="empty">${ofil === 'Semua' ? 'Belum ada pesanan.' : 'Tidak ada pesanan ' + ofil.toLowerCase() + '.'}</div>`;
 }
 function pStok() { $$('#stl [data-su]').forEach(e => { const p = S.produk.find(x => x.nama === e.dataset.su); e.textContent = p && p.stokUpdate ? 'Diperbarui ' + dtm(p.stokUpdate) : 'Belum pernah diinfo'; }); }
 V.pesan = ['Pesan Jus', formPesan, 0];
@@ -507,15 +511,15 @@ async function rcBuild(rows, useLogo) {
   const c = cv.getContext('2d'); c.scale(k, k); c.fillStyle = '#fff'; c.fillRect(0, 0, W, H); rcDraw(c, W, rows, logo);
   return new Promise((res, rej) => { try { cv.toBlob(b => b ? res(b) : rej(new Error('x')), 'image/jpeg', .92); } catch (e) { rej(e); } });
 }
-async function rcOpen(key) {
-  const rows = grp().filter(o => o.pembeli.toLowerCase() === key && (ofil === 'Semua' ? o.status !== 'Dibatalkan' : o.status === ofil)).sort((a, b) => a.dibuat.localeCompare(b.dibuat));
+async function rcOpen(key) { // key = kode pesanan (grup): 1 recipt = 1 pesanan
+  const rows = grp().filter(o => o.grup === key);
   if (!rows.length) return toast('Tidak ada pesanan untuk dibuat recipt', 1);
   toast('Membuat recipt…');
   try {
     try { await document.fonts.load('14px Figtree'); } catch (e) {}
     let b; try { b = await rcBuild(rows, true); } catch (e) { b = await rcBuild(rows, false); } // logo gagal dimuat -> pakai teks
     rcB = b; if (rcU) URL.revokeObjectURL(rcU); rcU = URL.createObjectURL(b);
-    rcN = 'recipt-' + rows[0].pembeli.replace(/[^\w-]+/g, '_') + '-' + today() + '.jpg';
+    rcN = 'recipt-' + rows[0].pembeli.replace(/[^\w-]+/g, '_') + '-' + rows[0].grup + '.jpg';
     const tel = waNum((rows.find(o => o.telp) || {}).telp), a = $('#rwa');
     $('#rci').src = rcU; a.hidden = !tel;
     if (tel) a.href = 'https://wa.me/' + tel + '?text=' + encodeURIComponent('Halo ' + rows[0].pembeli + ', ini recipt pesanan Buah Tetangga. Maturnuwun 🙏');
@@ -562,6 +566,7 @@ async function orderClick(b) {
     return;
   }
   if (d.of !== undefined) { ofil = d.of; return pOrd(); }
+  if (d.od !== undefined) { if (arm(b)) return; swOpen = ''; if (!(await sub(b, 'api_pesanHapus', [d.od], 'Item dihapus — Riwayat & Ringkasan ikut diperbarui'))) refresh(); return; }
   if (d.oe !== undefined) { editId = d.oe; return go('pesan'); }
   if (d.ox !== undefined) { if (arm(b)) return; if (!(await sub(b, 'api_pesanBatal', [d.ox], 'Pesanan dibatalkan'))) refresh(); return; }
   if (d.ok !== undefined) { if (arm(b)) return; if (!(await sub(b, 'api_pesanKonfirmasi', [d.ok], 'Dikonfirmasi & dicatat sebagai pemasukan'))) refresh(); return; }
@@ -607,11 +612,12 @@ function pT() {
   chart('cT1', { data: { labels: lbl, datasets: [{ type: 'bar', label: 'Pemasukan', data: a.i, backgroundColor: '#0f7a4a', borderRadius: 4 }, { type: 'bar', label: 'Pengeluaran', data: a.o, backgroundColor: '#f2a3b0', borderRadius: 4 }, { type: 'line', label: 'Laba', data: lb, borderColor: '#14211a', tension: .3, pointRadius: dn, borderWidth: 2 }] }, options: opt(n, { scales: { y: money, x: { grid: { display: false }, ticks: { maxTicksLimit: 7, maxRotation: 0 } } } }) });
   chart('cT2', { type: 'bar', data: { labels: lbl, datasets: S.produk.map(p => ({ label: p.nama, backgroundColor: p.warna, data: a.per[p.nama] || zero })) }, options: opt(n, { scales: { x: { stacked: true, grid: { display: false }, ticks: { maxTicksLimit: 7, maxRotation: 0 } }, y: { stacked: true, beginAtZero: true, grid: { color: '#edf2ea' }, border: { display: false } } }, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } } }) });
 }
-const delBtn = (j, id) => `<button class="del" data-j="${j}" data-id="${esc(id)}">Hapus</button>`;
+const delBtn = (j, id, l) => `<button class="del" data-j="${j}" data-id="${esc(id)}"${l ? ' data-l="1"' : ''}>Hapus</button>`;
+const dt2 = s => /^\d{4}-\d{2}-\d{2}/.test(s || '') ? s.slice(8, 10) + '/' + s.slice(5, 7) + '/' + s.slice(2, 4) + ' ' + s.slice(11, 16) : '';
 function pP() {
   const r = S.pemasukan.filter(x => x.tanggal === today()).reverse();
   $('#tt').textContent = r.length ? `${sum(r, x => x.qty)} botol · ${rp(sum(r, x => x.total))}` : '';
-  $('#tl').innerHTML = r.length ? r.map(x => `<li><div><b>${x.qty}× ${esc(x.jus)}</b><small>${esc(x.metode)}</small></div><span class="amt in">+${rp(x.total)}</span>${delBtn('in', x.id)}</li>`).join('') : '<div class="empty">Belum ada penjualan hari ini.</div>';
+  $('#tl').innerHTML = r.length ? r.map(x => `<li><div><b>${x.qty}× ${esc(x.jus)}</b><small>${esc(x.metode)}</small></div><span class="amt in">+${rp(x.total)}</span>${delBtn('in', x.id, x.grup)}</li>`).join('') : '<div class="empty">Belum ada penjualan hari ini.</div>';
 }
 function pE() {
   const r = S.pengeluaran.slice().sort((x, y) => (y.tanggal + y.dibuat).localeCompare(x.tanggal + x.dibuat)).slice(0, 30);
@@ -621,8 +627,17 @@ function pE() {
 function pH() {
   const q = $('#fq').value.toLowerCase(), j = $('#fj').value, f = $('#ff').value, t = $('#ft').value;
   const rows = S.pemasukan.filter(r => (!j || r.jus === j) && (!f || r.tanggal >= f) && (!t || r.tanggal <= t) && (!q || (r.catatan + ' ' + r.metode + ' ' + r.jus).toLowerCase().includes(q))).sort((x, y) => (y.tanggal + y.dibuat).localeCompare(x.tanggal + x.dibuat));
+  const om = {}; grp().forEach(o => { om[o.grup] = o; });
+  const li = r => {
+    const ref = r.grup || ((String(r.catatan).match(/\(#([^)]+)\)\s*$/) || [])[1] || '');
+    const tg = tgl(r.tanggal, { day: 'numeric', month: 'short', year: 'numeric' });
+    if (!ref) return `<li><div><b>${r.qty}× ${esc(r.jus)}</b><small>${tg} · ${esc(r.metode)}${r.catatan ? ' · ' + esc(r.catatan) : ''}</small></div><span class="amt in">${rp(r.total)}</span>${delBtn('in', r.id)}</li>`;
+    // dari Pesanan (Dikonfirmasi): baris 1 = qty rasa - nama - tanggal untuk; baris 2 = metode · (#kode) · jam pesan
+    const o = om[ref], nm = o ? o.pembeli : ((String(r.catatan).match(/^Pesanan (.*) \(#/) || [])[1] || '');
+    return `<li><div><b>${r.qty}× ${esc(r.jus)}${nm ? ' - ' + esc(nm) : ''} - ${tg}</b><small>${esc(r.metode)} · (#${esc(ref)})${o && o.dibuat ? ' · ' + dt2(o.dibuat) : ''}</small></div><span class="amt in">${rp(r.total)}</span>${delBtn('in', r.id, 1)}</li>`;
+  };
   $('#tt').textContent = `${rows.length} transaksi · ${sum(rows, r => r.qty)} botol · ${rp(sum(rows, r => r.total))}`;
-  $('#tl').innerHTML = rows.length ? rows.slice(0, 100).map(r => `<li><div><b>${r.qty}× ${esc(r.jus)}</b><small>${tgl(r.tanggal, { day: 'numeric', month: 'short', year: 'numeric' })} · ${esc(r.metode)}${r.catatan ? ' · ' + esc(r.catatan) : ''}</small></div><span class="amt in">${rp(r.total)}</span>${delBtn('in', r.id)}</li>`).join('') + (rows.length > 100 ? '<div class="empty">Menampilkan 100 terbaru. Persempit dengan filter.</div>' : '') : '<div class="empty">Tidak ada transaksi yang cocok.</div>';
+  $('#tl').innerHTML = rows.length ? rows.slice(0, 100).map(li).join('') + (rows.length > 100 ? '<div class="empty">Menampilkan 100 terbaru. Persempit dengan filter.</div>' : '') : '<div class="empty">Tidak ada transaksi yang cocok.</div>';
 }
 
 /* ===== Aksi ===== */
@@ -647,10 +662,35 @@ $('#view').addEventListener('click', async e => {
   else if (b.id === 'addP') { const n = $('#nn').value.trim(); if (await sub(b, 'api_addProduct', [n, $('#nh').value, $('#nc').value], 'Rasa ' + n + ' ditambahkan')) go('harga'); }
   else if (b.classList.contains('del')) {
     if (!b.classList.contains('arm')) { b.classList.add('arm'); b.textContent = 'Yakin?'; setTimeout(() => { b.classList.remove('arm'); b.textContent = 'Hapus'; }, 3000); return; }
-    b.disabled = true; try { S = await call('api_delete', b.dataset.j, b.dataset.id); saveS(); toast('Transaksi dihapus'); paint(); } catch (er) { toast(er.message, 1); b.disabled = false; }
+    b.disabled = true; try { S = await call('api_delete', b.dataset.j, b.dataset.id); saveS(); toast(b.dataset.l ? 'Dihapus dari Riwayat & Pesanan' : 'Transaksi dihapus'); paint(); } catch (er) { toast(er.message, 1); b.disabled = false; }
   }
 });
 $('#view').addEventListener('input', e => { if (e.target.id === 'qty' || e.target.id === 'harga') upd(); else if (view === 'riwayat') pH();  });
+/* geser item pesanan ke kiri -> tombol Hapus (admin, menu Pesanan) */
+(function () {
+  const v = $('#view'), W = 88; let el = null, sx = 0, sy = 0, dx = 0, mode = 0, base = 0;
+  v.addEventListener('pointerdown', e => {
+    if (view !== 'pesanan' || e.target.closest('.swb')) return;
+    const s = e.target.closest('.sw');
+    const o = v.querySelector('.sw.open'); if (o && o !== s) { o.classList.remove('open'); swOpen = ''; }
+    if (!s) return;
+    el = s; sx = e.clientX; sy = e.clientY; dx = 0; mode = 0; base = s.classList.contains('open') ? -W : 0;
+  });
+  v.addEventListener('pointermove', e => {
+    if (!el) return; const mx = e.clientX - sx, my = e.clientY - sy;
+    if (!mode) {
+      if (Math.abs(mx) > 8 && Math.abs(mx) > Math.abs(my)) { mode = 1; el.classList.add('drag'); try { el.setPointerCapture(e.pointerId); } catch (_) {} }
+      else { if (Math.abs(my) > 8) el = null; return; }
+    }
+    dx = Math.max(-W, Math.min(0, base + mx)); el.querySelector('.swc').style.transform = 'translateX(' + dx + 'px)';
+  });
+  const end = () => {
+    if (!el) return; const s = el; el = null; if (!mode) return;
+    s.classList.remove('drag'); s.querySelector('.swc').style.transform = '';
+    const open = dx < -W / 2; s.classList.toggle('open', open); swOpen = open ? s.dataset.sw : (swOpen === s.dataset.sw ? '' : swOpen);
+  };
+  v.addEventListener('pointerup', end); v.addEventListener('pointercancel', end);
+})();
 $('#period').onclick = e => { const b = e.target.closest('button'); if (b) { period = b.dataset.p; paint(); } };
 $('#out').onclick = () => A.role === 'admin' ? logout('') : showLogin();
 $('#view').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'snm') $('#scari').click(); });
