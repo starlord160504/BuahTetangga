@@ -401,18 +401,18 @@ function cartInfo() {
 }
 
 function formPesan() {
-  const l = aktif(), adm = A.role === 'admin', nm = adm ? '' : (LS.g(NK) || ''), tl = adm ? '' : (LS.g(TLK) || '');
+  const l = aktif(), adm = A.role === 'admin', nm = '', tl = '';
   cart = {}; pd.metode = 'Tunai';
   return `<div class="card"><h2>Jus ini untuk</h2>
   <label class="f" for="pnm" style="margin-top:8px">Nama</label><input class="inp" id="pnm" maxlength="30" autocomplete="off" value="${esc(nm)}" placeholder="pakai nama unik ini untuk cek Status Pesanan apakah sudah Approve">
-  <label class="f" for="ptl">Nomor telfon</label><input class="inp" id="ptl" type="tel" inputmode="tel" maxlength="16" value="${esc(tl)}" placeholder="untuk konfirmasi recipt">
+  <label class="f" for="ptl">Nomor WA</label><input class="inp" id="ptl" type="tel" inputmode="tel" maxlength="16" value="${esc(tl)}" placeholder="untuk konfirmasi recipt">
   <label class="f" for="ptgl">Untuk tanggal</label><input class="inp" id="ptgl" type="date" min="${today()}" value="${today()}"></div>
   <div class="card"><h2>Pesan jus</h2><p class="sub">Ketuk + pada jus yang diinginkan. Boleh lebih dari satu varian.</p>
   <label class="f" style="margin-top:4px">Pilih jus</label><p class="sub" id="avt" style="margin-bottom:2px"></p>
   <div id="vl">${l.map(p => `<div class="vr" data-r="${esc(p.nama)}"><span class="vn"><i style="background:${esc(p.warna)}"></i>${esc(p.nama)}<em> · ${rp(p.harga)}</em></span><span class="vs"><button type="button" data-pa="${esc(p.nama)}" data-d="-1">−</button><b class="vq">0</b><button type="button" data-pa="${esc(p.nama)}" data-d="1">+</button></span><span class="sb na">…</span></div>`).join('') || '<div class="empty">Belum ada jus.</div>'}</div>
   <label class="f">Pembayaran</label><div class="chips" id="pmc">${['Tunai', 'Transfer'].map(m => `<button type="button" class="chip${m === pd.metode ? ' on' : ''}" data-pm="${m}">${m}</button>`).join('')}</div>
   <div id="payinfo"></div>
-  <label class="f">Catatan (opsional)</label><input class="inp" id="pcat" maxlength="200" placeholder="mis. less sugar, tanpa es">
+  <label class="f">Catatan (opsional)</label><input class="inp" id="pcat" maxlength="200" placeholder="mis. Segera diminum, nitip dulu di storage">
   <div class="tot"><span id="psum">Belum ada jus dipilih</span><strong id="ptot">Rp0</strong></div>
   <button class="btn" id="psave">Pesan sekarang</button></div>`;
 }
@@ -555,7 +555,7 @@ async function orderClick(b) {
     const ci = cartInfo(); if (!ci.n) return toast('Pilih minimal 1 jus', 1);
     const adm = A.role === 'admin', nama = $('#pnm').value.trim(), telp = $('#ptl').value.trim();
     if (nama.length < 3) return toast('Isi nama pemesan (min. 3 karakter)', 1);
-    if (!adm && telp.replace(/\D/g, '').length < 8) return toast('Isi nomor telepon yang valid', 1);
+    if (!adm && telp.replace(/\D/g, '').length < 8) return toast('Isi nomor WA yang valid', 1);
     const a = { nama, telp, items: Object.keys(cart).filter(k => cart[k] > 0).map(k => ({ jus: k, qty: cart[k] })), tanggal: $('#ptgl').value, metode: pd.metode, catatan: $('#pcat').value };
     const ok = adm ? await sub(b, 'api_pesanBuat', [a], 'Pesanan tersimpan') : await sub(b, 'pub_pesanBuat', [a], 'Pesanan terkirim — cek di Status Pesanan');
     if (ok) { if (!adm) { LS.s(NK, nama); LS.s(TLK, telp); qNama = nama; } ofil = adm ? 'Menunggu' : 'Semua'; go('pesanan'); } else refresh();
