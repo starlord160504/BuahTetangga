@@ -133,7 +133,7 @@ label.f{display:block;font-weight:600;font-size:13.5px;margin:12px 0 5px}
 .st{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
 .st.wait{background:#fff3d6;color:#8a5a00}.st.ok{background:#e4f5ea;color:var(--in)}.st.no{background:#fde8ec;color:#a3112b}
 .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
-.blw{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:6px 0}.blw span{font-size:13px;color:var(--mu)}.blw input{width:130px;text-align:right;padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+.blw{margin:6px 0}.bli{display:flex;gap:6px;margin-bottom:6px;align-items:center}.bli input{padding:8px 10px;border:1.5px solid var(--line);border-radius:10px;background:#fff;min-width:0}.bli .bn{flex:1}.bli .bv{width:112px;text-align:right}.bx{border:0;background:transparent;font-size:24px;line-height:1;color:var(--out);padding:0 6px;cursor:pointer}
 .mb{background:#fff;border:1px solid var(--line);border-radius:9px;padding:6px 12px;font-size:13px;cursor:pointer}
 .mb.arm,.btn.arm{background:var(--out);border-color:var(--out);color:#fff}
 .btn.gh{background:#fff;color:var(--ink);border:1.5px solid var(--line)}
@@ -221,7 +221,7 @@ async function call(fn, ...a) {
   let j;
   try { j = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn, args: a }) })).json(); }
   catch (e) { throw new Error('Tidak bisa terhubung. Periksa koneksi internet.'); }
-  if (!j.ok) { if (/SESI_HABIS/.test(j.error) && A.token) logout('Sesi berakhir, silakan masuk lagi.'); throw new Error(j.error); }
+  if (!j.ok) { if (/SESI_HABIS/.test(j.error) && A.token) logout('Sesi berakhir, silakan masuk lagi.'); if (/Fungsi tidak dikenal/.test(j.error)) throw new Error('Backend belum versi terbaru. Di Apps Script: Deploy > Manage deployments > New version.'); throw new Error(j.error); }
   if (j.data && j.data.now) skew = j.data.now - Date.now();
   return j.data;
 }
@@ -390,7 +390,7 @@ function grp() {
   const m = {}, out = [];
   (S.pesanan || []).forEach(r => {
     const k = r.grup || r.id; let g = m[k];
-    if (!g) { g = m[k] = { grup: k, pembeli: r.pembeli, items: [], total: 0, tanggal: r.tanggal, metode: r.metode, catatan: r.catatan, status: r.status, dibuat: r.dibuat, batas: r.batas, diperbarui: r.diperbarui, oleh: r.oleh, telp: r.telp, biaya: r.biaya || 0 }; out.push(g); }
+    if (!g) { g = m[k] = { grup: k, pembeli: r.pembeli, items: [], total: 0, tanggal: r.tanggal, metode: r.metode, catatan: r.catatan, status: r.status, dibuat: r.dibuat, batas: r.batas, diperbarui: r.diperbarui, oleh: r.oleh, telp: r.telp, bl: r.bl || [], biaya: r.biaya || 0 }; out.push(g); }
     g.items.push({ id: r.id, jus: r.jus, qty: r.qty, total: r.total }); g.total += r.total; if (!g.telp && r.telp) g.telp = r.telp;
   });
   out.forEach(g => { g.total += g.biaya; }); // total = varian + biaya lain-lain
@@ -440,6 +440,11 @@ function pUpd() {
   $('#payinfo').innerHTML = pd.metode === 'Transfer' ? `<p class="hint">Transfer ke salah satu rekening ini, lalu tunggu konfirmasi penjual:</p>${payBox(ci.tot)}` : '<p class="hint">Bayar tunai langsung ke penjual.</p>';
 }
 
+const bRow = (n, v) => `<div class="bli"><input class="bn" maxlength="40" placeholder="Nama biaya" value="${esc(n)}"><input class="bv" type="number" inputmode="numeric" min="0" step="500" placeholder="0" value="${v || ''}"><button type="button" class="bx" data-bx="1" aria-label="Hapus biaya">×</button></div>`;
+function feeHtml(o, adm, wait) { // biaya lain-lain: admin bisa tambah/ubah/hapus baris selama Menunggu
+  if (adm && wait) return `<div class="blw" data-g="${esc(o.grup)}" data-sub="${o.total - o.biaya}"><div class="bll">${(o.bl || []).map(x => bRow(x.n, x.v)).join('')}</div><div class="acts"><button type="button" class="mb" data-ba="Ongkir">+ Ongkir</button><button type="button" class="mb" data-ba="Packing">+ Packing</button><button type="button" class="mb" data-ba="">+ Lainnya</button></div></div>`;
+  return (o.bl || []).map(x => `<div class="it" style="padding:2px 2px"><span>${esc(x.n)}</span><span>${rp(x.v)}</span></div>`).join('');
+}
 let swOpen = ''; // id item yang sedang terbuka (digeser) supaya tidak menutup saat data diperbarui
 function orderHtml(o, adm) {
   const wait = o.status === 'Menunggu', cls = { Menunggu: 'wait', Dikonfirmasi: 'ok', Dibatalkan: 'no' }[o.status] || 'wait';
@@ -453,13 +458,13 @@ function orderHtml(o, adm) {
     ? `<div class="sw${swOpen === i.id ? ' open' : ''}" data-sw="${esc(i.id)}"><div class="swa"><button type="button" class="swb" data-od="${esc(i.id)}">Hapus</button></div><div class="it swc"><span>${i.qty}× ${esc(i.jus)}</span><span>${rp(i.total)}</span></div></div>`
     : `<div class="it"><span>${i.qty}× ${esc(i.jus)}</span><span>${rp(i.total)}</span></div>`;
   return `<div class="od"><div class="oh"><b>${head}</b><span class="st ${cls}">${esc(o.status)}</span></div>${adm ? '' : `<small>Untuk ${tg} · ${esc(o.metode)}</small>`}${tel}
-  <div style="margin:6px 0">${o.items.map(itm).join('')}</div>${adm && wait ? `<div class="blw"><span>Biaya lain-lain (ongkir, packaging, dll)</span><input class="bl" data-bl="${id}" type="number" inputmode="numeric" min="0" step="500" placeholder="0" value="${o.biaya || ''}"></div>` : o.biaya > 0 ? `<div class="it" style="padding:2px 2px"><span>Biaya lain-lain</span><span>${rp(o.biaya)}</span></div>` : ''}
+  <div style="margin:6px 0">${o.items.map(itm).join('')}</div>${feeHtml(o, adm, wait)}
   <small>Dipesan ${dtm(o.dibuat)}${adm ? ' · #' + id : ''}${o.catatan ? ' · ' + esc(o.catatan) : ''}</small>${info}
-  <div class="oh" style="margin-top:4px"><span>Total</span><span class="amt in">${rp(o.total)}</span></div>${pay}${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
+  <div class="oh" style="margin-top:4px"><span>Total</span><span class="amt in otot">${rp(o.total)}</span></div>${pay}${acts ? `<div class="acts">${acts}</div>` : ''}</div>`;
 }
 function pOrd() {
   if (!$('#ol')) return;
-  const ae = document.activeElement; if (ae && ae.classList && ae.classList.contains('bl')) return; // jangan hapus ketikan biaya
+  const ae = document.activeElement; if (bTimer || bBusy || (ae && ae.closest && ae.closest('.blw'))) return; // jangan hapus ketikan biaya
 
   const adm = A.role === 'admin';
   const all = grp().sort((a, b) => b.dibuat.localeCompare(a.dibuat)), cnt = s => all.filter(o => o.status === s).length;
@@ -488,7 +493,20 @@ const fT = s => s.slice(8, 10) + ' ' + MON[Number(s.slice(5, 7)) - 1] + ' ' + s.
 const rpS = n => 'Rp ' + Math.round(n).toLocaleString('id-ID');
 const waNum = t => { let d = String(t || '').replace(/\D/g, ''); if (!d) return ''; if (d.startsWith('0')) d = '62' + d.slice(1); else if (d.startsWith('8')) d = '62' + d; return d; };
 let rcLg = null, rcB = null, rcU = '', rcN = '';
-const rcLogo = () => rcLg || (rcLg = new Promise(async r => { for (const u of [LOGO, 'logo.png']) { const i = await new Promise(k => { const m = new Image(); m.crossOrigin = 'anonymous'; m.onload = () => k(m); m.onerror = () => k(null); m.src = u; setTimeout(() => k(null), 6000); }); if (i) return r(i); } rcLg = null; r(null); }));
+let rcLgT = 0;
+const LOGO_C = 'bt_logo';
+const rcLogo = () => { if (rcLg && !(rcLgT && Date.now() - rcLgT > 120000)) return rcLg; rcLgT = 0; return rcLg = new Promise(async r => {
+  let ca = ''; try { ca = localStorage.getItem(LOGO_C) || ''; } catch (e) {}
+  for (const u of (ca ? [ca] : []).concat([LOGO, 'logo.png'])) {
+    const dat = u.slice(0, 5) === 'data:';
+    const i = await new Promise(k => { const m = new Image(); if (!dat) m.crossOrigin = 'anonymous'; m.onload = () => k(m); m.onerror = () => k(null); m.src = u; setTimeout(() => k(null), dat ? 800 : 3500); });
+    if (i) {
+      if (!dat) try { const sc = Math.min(1, 420 / i.naturalWidth), cv = document.createElement('canvas'); cv.width = Math.round(i.naturalWidth * sc); cv.height = Math.round(i.naturalHeight * sc); cv.getContext('2d').drawImage(i, 0, 0, cv.width, cv.height); localStorage.setItem(LOGO_C, cv.toDataURL('image/png')); } catch (e) {}
+      return r(i);
+    }
+  }
+  rcLgT = Date.now(); r(null);
+}); };
 function rcIcon(c, k, x, y, s) { // ikon monokrom digambar dengan canvas (24x24 diskalakan ke tinggi font)
   c.save(); c.translate(x, y + 1); c.scale(s / 24, s / 24); c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = 2.2;
   if (k === 'ig') { c.beginPath(); if (c.roundRect) c.roundRect(2, 2, 20, 20, 6); else c.rect(2, 2, 20, 20); c.stroke(); c.beginPath(); c.arc(12, 12, 4.6, 0, 7); c.stroke(); c.beginPath(); c.arc(17.4, 6.6, 1.3, 0, 7); c.fill(); }
@@ -510,7 +528,7 @@ function rcDraw(ctx, W, rows, logo) {
   else { ctx.fillStyle = '#0f3d2a'; ctx.fillRect(0, 0, W, 72); ctx.fillStyle = '#c6f432'; ctx.font = '800 28px ' + F; ctx.textAlign = 'center'; ctx.fillText('Buah Tetangga', W / 2, 22); y = 72; }
   y += 14;
   row('Nama Pemesan', rows[0].pembeli, { d: 1 }); row('Jumlah', sum(rows, o => sum(o.items, i => i.qty)) + ' botol', { d: 1 });
-  rows.forEach(o => { sep(); row('Untuk tanggal', fT(o.tanggal), { d: 1 }); row('Pembayaran', o.metode, { d: 1 }); o.items.forEach(i => row(i.qty + ' x ' + i.jus, rpS(i.total))); if (o.biaya > 0) row('Biaya lain-lain', rpS(o.biaya)); row('Total', rpS(o.total), { b: 1 }); y += 14; row('Dipesan', fDT(o.dibuat), { d: 1, a: 1 }); });
+  rows.forEach(o => { sep(); row('Untuk tanggal', fT(o.tanggal), { d: 1 }); row('Pembayaran', o.metode, { d: 1 }); o.items.forEach(i => row(i.qty + ' x ' + i.jus, rpS(i.total))); (o.bl || []).forEach(x => row(x.n, rpS(x.v))); row('Total', rpS(o.total), { b: 1 }); y += 14; row('Dipesan', fDT(o.dibuat), { d: 1, a: 1 }); });
   const n = new Date(); row('Dicetak', fDT(ymd(n) + ' ' + pad(n.getHours()) + ':' + pad(n.getMinutes())), { d: 1, a: 1 });
   // keterangan pembayaran: font 1px lebih kecil, opacity 60%
   const pm = rows[0].metode === 'Transfer' ? ['Pembayaran dilakukan secara transfer di :', 'Mandiri - 1410023555717 - M AGUNG RIDHO', 'BLU BCA - 008297786559 - M AGUNG RIDHO'] : ['Pembayaran dilakukan secara tunai'];
@@ -529,18 +547,18 @@ function rcDraw(ctx, W, rows, logo) {
   return y;
 }
 async function rcBuild(rows, useLogo) {
-  const W = 380, k = 3, logo = useLogo ? await rcLogo() : null;
+  const W = 380, k = 2.5, logo = useLogo ? await Promise.race([rcLogo(), new Promise(r => setTimeout(() => r(null), 1500))]) : null;
   const H = Math.ceil(rcDraw(document.createElement('canvas').getContext('2d'), W, rows, logo));
   const cv = document.createElement('canvas'); cv.width = W * k; cv.height = H * k;
   const c = cv.getContext('2d'); c.scale(k, k); c.fillStyle = '#fff'; c.fillRect(0, 0, W, H); rcDraw(c, W, rows, logo);
-  return new Promise((res, rej) => { try { cv.toBlob(b => b ? res(b) : rej(new Error('x')), 'image/jpeg', .92); } catch (e) { rej(e); } });
+  return new Promise((res, rej) => { try { cv.toBlob(b => b ? res(b) : rej(new Error('x')), 'image/jpeg', .9); } catch (e) { rej(e); } });
 }
 async function rcOpen(key) { // key = kode pesanan (grup): 1 recipt = 1 pesanan
   const rows = grp().filter(o => o.grup === key);
   if (!rows.length) return toast('Tidak ada pesanan untuk dibuat recipt', 1);
   toast('Membuat recipt…');
   try {
-    try { await document.fonts.load('14px Figtree'); } catch (e) {}
+    try { await Promise.race([document.fonts.load('14px Figtree'), new Promise(r => setTimeout(r, 600))]); } catch (e) {}
     let b; try { b = await rcBuild(rows, true); } catch (e) { b = await rcBuild(rows, false); } // logo gagal dimuat -> pakai teks
     rcB = b; if (rcU) URL.revokeObjectURL(rcU); rcU = URL.createObjectURL(b);
     rcN = 'recipt-' + rows[0].pembeli.replace(/[^\w-]+/g, '_') + '-' + rows[0].grup + '.jpg';
@@ -562,7 +580,9 @@ $('#rsh').onclick = async () => {
 async function orderClick(b) {
   const d = b.dataset;
   if (d.copy !== undefined) return copyText(d.copy);
-  if (d.rc !== undefined) return rcOpen(d.rc);
+  if (d.ba !== undefined) { const w = b.closest('.blw'); w.querySelector('.bll').insertAdjacentHTML('beforeend', bRow(d.ba, '')); const rs = w.querySelectorAll('.bli'); rs[rs.length - 1].querySelector(d.ba ? '.bv' : '.bn').focus(); return; }
+  if (d.bx !== undefined) { const w = b.closest('.blw'); b.closest('.bli').remove(); bTotal(w); bSave(w, true); return; }
+  if (d.rc !== undefined) { const w = b.closest('.od').querySelector('.blw'); if (w) bApply(w); return rcOpen(d.rc); }
   if (d.pa !== undefined) {
     const p = S.produk.find(x => x.nama === d.pa), cur = cart[d.pa] || 0, nx = cur + Number(d.d);
     if (nx < 0 || nx > 99) return;
@@ -593,7 +613,16 @@ async function orderClick(b) {
   if (d.od !== undefined) { if (arm(b)) return; swOpen = ''; if (!(await sub(b, 'api_pesanHapus', [d.od], 'Item dihapus — Riwayat & Ringkasan ikut diperbarui'))) refresh(); return; }
   if (d.oe !== undefined) { editId = d.oe; return go('pesan'); }
   if (d.ox !== undefined) { if (arm(b)) return; if (!(await sub(b, 'api_pesanBatal', [d.ox], 'Pesanan dibatalkan'))) refresh(); return; }
-  if (d.ok !== undefined) { if (arm(b)) return; const bi = b.closest('.od').querySelector('.bl'); if (!(await sub(b, 'api_pesanKonfirmasi', [d.ok, bi ? (Number(bi.value) || 0) : ''], 'Dikonfirmasi & dicatat sebagai pemasukan'))) refresh(); return; }
+  if (d.ok !== undefined) { // optimistis: tampil langsung Dikonfirmasi, server menyusul di latar belakang
+    if (arm(b)) return;
+    const w = b.closest('.od').querySelector('.blw'), l = w ? bRead(w) : null, val = l ? l.reduce((t, x) => t + x.v, 0) : null, snap = JSON.stringify(S); clearTimeout(bTimer); bTimer = 0;
+    const n = new Date(Date.now() + (skew || 0)), p2 = x => String(x).padStart(2, '0'), stamp = n.getFullYear() + '-' + p2(n.getMonth() + 1) + '-' + p2(n.getDate()) + ' ' + p2(n.getHours()) + ':' + p2(n.getMinutes()) + ':' + p2(n.getSeconds());
+    S.pesanan.forEach(r => { if ((r.grup || r.id) !== d.ok) return; r.status = 'Dikonfirmasi'; r.diperbarui = stamp; r.oleh = A.user; if (l) { r.bl = l; r.biaya = val; }
+      S.pemasukan.push({ id: 'tmp' + r.id, tanggal: r.tanggal, jus: r.jus, qty: r.qty, harga: r.harga, total: r.total, metode: r.metode, catatan: 'Pesanan ' + r.pembeli + ' (#' + d.ok + ')', dibuat: stamp, grup: d.ok }); });
+    toast('Dikonfirmasi & dicatat sebagai pemasukan'); paint();
+    call('api_pesanKonfirmasi', d.ok, l === null ? '' : l).then(data => { S = data; saveS(); paint(); }).catch(er => { S = JSON.parse(snap); paint(); toast(er.message, 1); });
+    return;
+  }
   if (b.id === 'stsave') {
     const ch = []; $$('#stl [data-sn]').forEach(i => { const p = S.produk.find(x => x.nama === i.dataset.sn), v = i.value.trim(); if (v !== (p && p.stok !== null ? String(p.stok) : '')) ch.push({ nama: i.dataset.sn, stok: v }); });
     if (!ch.length) return toast('Tidak ada perubahan stok');
@@ -690,11 +719,20 @@ $('#view').addEventListener('click', async e => {
   }
 });
 $('#view').addEventListener('input', e => { if (e.target.id === 'qty' || e.target.id === 'harga') upd(); else if (view === 'riwayat') pH();  });
-$('#view').addEventListener('change', async e => {
-  const t = e.target; if (!t.classList || !t.classList.contains('bl')) return;
-  const v = Math.max(0, Math.round(Number(t.value) || 0));
-  try { S = await call('api_pesanBiaya', t.dataset.bl, v); saveS(); toast('Biaya lain-lain disimpan'); paint(); } catch (err) { toast(err.message, 1); }
-});
+/* biaya lain-lain: simpan otomatis (debounce) tanpa menggambar ulang kartu saat mengetik */
+let bTimer = 0, bBusy = 0, bSeq = 0;
+const bRead = w => [...w.querySelectorAll('.bli')].map(r => ({ n: r.querySelector('.bn').value.trim(), v: Math.max(0, Math.round(Number(r.querySelector('.bv').value) || 0)) })).filter(x => x.v > 0).map(x => ({ n: x.n || 'Biaya lain-lain', v: x.v }));
+const bApply = w => { const l = bRead(w), s = l.reduce((t, x) => t + x.v, 0); S.pesanan.forEach(r => { if ((r.grup || r.id) === w.dataset.g) { r.bl = l; r.biaya = s; } }); };
+function bTotal(w) { const t = w.closest('.od').querySelector('.otot'); if (t) t.textContent = rp(Number(w.dataset.sub) + bRead(w).reduce((s, x) => s + x.v, 0)); }
+function bSave(w, now) {
+  clearTimeout(bTimer);
+  const run = () => {
+    bTimer = 0; bApply(w); saveS(); const my = ++bSeq; bBusy++;
+    call('api_pesanBiaya', w.dataset.g, bRead(w)).then(d => { if (my === bSeq) { S = d; saveS(); } }).catch(er => toast(er.message, 1)).finally(() => { bBusy--; });
+  };
+  if (now) run(); else bTimer = setTimeout(run, 700);
+}
+$('#view').addEventListener('input', e => { const w = e.target.closest && e.target.closest('.blw'); if (!w) return; bTotal(w); bSave(w); });
 /* geser item pesanan ke kiri -> tombol Hapus (admin, menu Pesanan) */
 (function () {
   const v = $('#view'), W = 88; let el = null, sx = 0, sy = 0, dx = 0, mode = 0, base = 0;
@@ -726,7 +764,7 @@ $('#view').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.
 $('#rf').onclick = () => refresh(true);
 async function refresh(manual) {
   const r = $('#rf'); r.classList.add('spin');
-  try { S = A.role === 'admin' ? await call('api_getData') : await call('pub_getData', qNama); saveS(); if (S.role && S.role !== A.role) { A.role = S.role; start(); } else paint(); if (manual) toast('Data diperbarui'); } catch (e) { if (manual) toast(e.message, 1); }
+  try { S = A.role === 'admin' ? await call('api_getData') : await call('pub_getData', qNama); saveS(); if (S.role && S.role !== A.role) { A.role = S.role; start(); } else paint(); if (A.role === 'admin' && (S.ver || 0) < 8) toast('Backend Apps Script belum versi terbaru. Deploy > Manage deployments > New version.', 1); else if (manual) toast('Data diperbarui'); } catch (e) { if (manual) toast(e.message, 1); }
   r.classList.remove('spin');
 }
 const NAVL = { ringkasan: 'Ringkasan', pemasukan: 'Jual', pengeluaran: 'Biaya', riwayat: 'Riwayat', tren: 'Tren', harga: 'Harga', pesan: 'Pesan', pesanan: 'Pesanan', stok: 'Stok' };
@@ -740,6 +778,7 @@ function start(bg) {
   const a = aktif()[0]; if (a) { draft.jus = a.nama; draft.harga = a.harga; }
   ofil = adm ? 'Menunggu' : 'Semua'; editId = null;
   go(adm ? 'ringkasan' : 'pesan'); if (bg) refresh();
+  if (adm) setTimeout(() => { rcLogo(); try { document.fonts.load('14px Figtree'); document.fonts.load('italic 13px Figtree'); } catch (e) {} }, 300); // siapkan logo & font lebih awal supaya recipt cepat
 }
 
 /* Pesanan masuk / status pesanan diperbarui otomatis tiap 1 menit; hitung mundur batas edit tiap 30 detik */
